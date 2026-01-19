@@ -10,13 +10,6 @@ export type { Portfolio } from '@/types/portfolio'
 // TYPES
 // =============================================================================
 
-interface TierChange {
-  pair_id: string
-  old_tier: number
-  new_tier: number
-  coverage: number
-}
-
 interface PortfolioSummary {
   total: number
   by_tier: Record<string, number>
@@ -43,7 +36,6 @@ export interface UsePortfolioPricesResult {
   status: ConnectionStatus
   changedIds: Set<string>
   priceChanges: Map<string, PriceChange>
-  tierChanges: TierChange[]
   updateFilters: (filters: FilterState) => void
   reconnect: () => void
 }
@@ -72,7 +64,6 @@ export function usePortfolioPrices(
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
   const [changedIds, setChangedIds] = useState<Set<string>>(new Set())
   const [priceChanges, setPriceChanges] = useState<Map<string, PriceChange>>(new Map())
-  const [tierChanges, setTierChanges] = useState<TierChange[]>([])
 
   const wsRef = useRef<WebSocket | null>(null)
   const filtersRef = useRef<FilterState>(initialFilters)
@@ -238,7 +229,6 @@ export function usePortfolioPrices(
               // Delta update from price changes
               const changed = data.changed as Portfolio[]
               const removed = (data.removed || []) as string[]
-              const newTierChanges = data.tier_changes as TierChange[]
 
               // Update summary if provided (for real-time stats)
               if (data.summary) {
@@ -282,12 +272,6 @@ export function usePortfolioPrices(
                 setChangedIds(prev => new Set([...prev, ...newChangedIds]))
                 setPriceChanges(prev => new Map([...prev, ...newPriceChanges]))
               }
-
-              if (newTierChanges.length > 0) {
-                setTierChanges(newTierChanges)
-                // Clear tier changes after a short delay
-                setTimeout(() => setTierChanges([]), 3000)
-              }
               break
 
             case 'filter_ack':
@@ -310,7 +294,6 @@ export function usePortfolioPrices(
               // Clear any pending changes
               setChangedIds(new Set())
               setPriceChanges(new Map())
-              setTierChanges([])
               break
 
             case 'heartbeat':
@@ -441,7 +424,6 @@ export function usePortfolioPrices(
     status,
     changedIds,
     priceChanges,
-    tierChanges,
     updateFilters,
     reconnect,
   }

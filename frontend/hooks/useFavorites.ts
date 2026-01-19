@@ -10,7 +10,6 @@ export interface FavoriteEntry {
 
 export function useFavorites() {
   const [favorites, setFavorites] = useState<Map<string, FavoriteEntry>>(new Map())
-  const [mounted, setMounted] = useState(false)
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -23,7 +22,6 @@ export function useFavorites() {
     } catch (e) {
       console.debug('Failed to load favorites:', e)
     }
-    setMounted(true)
   }, [])
 
   // Persist to localStorage
@@ -86,14 +84,6 @@ export function useFavorites() {
     [favorites]
   )
 
-  // Get favorite entry (for showing change since added)
-  const getFavorite = useCallback(
-    (pairId: string) => {
-      return favorites.get(pairId)
-    },
-    [favorites]
-  )
-
   // Clear all favorites
   const clearAll = useCallback(() => {
     setFavorites(new Map())
@@ -106,15 +96,10 @@ export function useFavorites() {
     .map((f) => f.pair_id)
 
   return {
-    favorites,
     favoriteIds,
-    addFavorite,
-    removeFavorite,
     toggleFavorite,
     isFavorite,
-    getFavorite,
     clearAll,
     count: favorites.size,
-    mounted,
   }
 }
