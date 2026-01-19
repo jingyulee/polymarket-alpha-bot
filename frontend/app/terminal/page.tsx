@@ -19,7 +19,6 @@ import { getApiBaseUrl } from '@/config/api-config'
 interface PortfolioStats {
   total: number
   profitable: number
-  avgCoverage: number
 }
 
 // =============================================================================
@@ -49,7 +48,6 @@ export default function TerminalPage() {
   const [stats, setStats] = useState<PortfolioStats>({
     total: 0,
     profitable: 0,
-    avgCoverage: 0,
   })
 
   // Local UI state
@@ -100,15 +98,9 @@ export default function TerminalPage() {
 
       if (statsRes.ok) {
         const data = await statsRes.json()
-        const allPortfolios = data.data?.portfolios || []
         setStats({
           total: data.meta?.count || data.total_count || 0,
           profitable: data.meta?.profitable_count || data.profitable_count || 0,
-          avgCoverage:
-            allPortfolios.length > 0
-              ? allPortfolios.reduce((acc: number, p: Portfolio) => acc + p.coverage, 0) /
-                allPortfolios.length
-              : 0,
         })
       }
 
@@ -268,29 +260,6 @@ export default function TerminalPage() {
                 </div>
               </div>
 
-              <div className="w-px h-8 bg-border" />
-
-              <div className="flex items-center gap-2 group/avgconf relative">
-                <span className="text-2xl font-semibold font-mono text-amber">
-                  {stats.avgCoverage > 0 ? `${(stats.avgCoverage * 100).toFixed(0)}%` : '—'}
-                </span>
-                <span className="text-xs text-text-muted flex items-center gap-1">
-                  avg LLM confidence
-                  <span className="w-3.5 h-3.5 rounded-full bg-surface border border-border text-[9px] flex items-center justify-center opacity-50 group-hover/avgconf:opacity-100 transition-opacity cursor-help">?</span>
-                </span>
-                {/* Tooltip */}
-                <div className="absolute left-0 top-full mt-2 w-72 p-2.5 bg-surface-elevated border border-border rounded-lg shadow-lg opacity-0 invisible group-hover/avgconf:opacity-100 group-hover/avgconf:visible transition-all z-50">
-                  <p className="text-[11px] font-medium text-violet-400 mb-1.5">LLM Confidence Score</p>
-                  <p className="text-[10px] text-text-secondary mb-2">
-                    Probability of $1 payout, derived from LLM-detected logical relationships between markets.
-                  </p>
-                  <div className="text-[10px] text-text-muted space-y-1 border-t border-border pt-2">
-                    <p><span className="text-violet-400">1.</span> LLM extracts implications (A→B) between markets</p>
-                    <p><span className="text-violet-400">2.</span> Maps strength → probability: <span className="text-text-secondary">necessary</span>=98%, <span className="text-text-secondary">strong</span>=85%</p>
-                    <p><span className="text-violet-400">3.</span> Formula: P(target) + P(¬target) × P(cover)</p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Right: Status indicators */}
