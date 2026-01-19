@@ -1,60 +1,44 @@
 # CLAUDE.md
 
-> Polymarket alpha detection platform: cross-market arbitrage and conditional probability mispricings via LLM pipeline, REST API, and web dashboard.
+> Polymarket alpha detection platform. LLM pipeline groups related markets, extracts logical implications between groups, and builds covering portfolios (hedged positions via contrapositive logic). Web dashboard displays portfolios with real-time price tracking.
 
 ## Project Structure
 
 ```
 alphapoly/
-├── backend/                 # Python backend (FastAPI + ML pipeline)
-│   ├── core/                # Pipeline logic
-│   │   ├── runner.py        # Main orchestrator
-│   │   ├── state.py         # SQLite state, _live/ exports
-│   │   ├── paths.py         # Shared path constants
-│   │   └── steps/           # Pipeline steps
-│   ├── server/              # FastAPI app
-│   │   ├── main.py          # App entrypoint
-│   │   └── routers/         # API routes
-│   ├── pyproject.toml
-│   └── uv.lock
-│
-├── frontend/                # Next.js dashboard
-│   ├── app/                 # Pages (App Router)
-│   ├── components/
-│   ├── hooks/
-│   └── package.json
-│
-├── experiments/             # Standalone scripts, tests, scratch work
-├── data/                    # Pipeline outputs (gitignored)
-├── Makefile                 # Common commands
-└── .env                     # Environment variables
+├── backend/           # FastAPI + ML pipeline (Python/uv)
+│   ├── core/          # Pipeline: runner.py, state.py, steps/
+│   └── server/        # API: main.py, routers/, WebSocket services
+├── frontend/          # Next.js dashboard (App Router)
+│   ├── app/           # Pages: /, /pipeline, /portfolios, /terminal
+│   ├── components/    # React components
+│   ├── hooks/         # Custom hooks
+│   ├── types/         # TypeScript definitions
+│   └── config/        # API and UI configuration
+├── experiments/       # Standalone scripts (no shared modules)
+├── data/              # Pipeline outputs (gitignored)
+└── Makefile           # Dev commands
 ```
-
-## Quick Start
-
-```bash
-make install    # Install backend + frontend deps
-make dev        # Start both servers (backend :8000, frontend :3000)
-
-# Or run separately
-make backend    # API only
-make frontend   # UI only
-make check-node # Verify Node.js is detected
-```
-
-> **Note**: Makefile auto-detects Node.js from fnm, nvm, volta, or system paths.
 
 ## Commands
 
 ```bash
+# Development
 make install        # Install all dependencies
-make dev            # Start backend + frontend
-make backend        # Backend only (localhost:8000)
-make frontend       # Frontend only (localhost:3000)
+make dev            # Start backend (:8000) + frontend (:3000)
+make backend        # Backend only
+make frontend       # Frontend only
+
+# Pipeline
 make pipeline       # Run ML pipeline (incremental)
-make pipeline-full  # Run ML pipeline (full)
+make pipeline-full  # Run ML pipeline (full reprocess)
+
+# Seed Data
+make export-seed    # Export current state as seed
+make import-seed    # Import seed data (resets DB)
+
+# Quality
 make lint           # Lint + format all code
-make check-node     # Verify Node.js is available
 make clean          # Remove build artifacts
 ```
 
@@ -66,59 +50,27 @@ make clean          # Remove build artifacts
 - **Experiments are independent** — no shared modules
 - **Run Python commands from `backend/`**
 
-## Alpha Detection
+## API Overview
 
-**Goal**: Find position combinations across DIFFERENT questions where total cost < $1.00 guarantees $1.00 payout.
+| Route | Description |
+|-------|-------------|
+| `GET /data/portfolios` | Covering portfolios with live prices |
+| `GET /pipeline/status` | Pipeline state & run history |
+| `POST /pipeline/run/production` | Trigger pipeline run |
+| `POST /pipeline/reset` | Clear pipeline state |
+| `WS /portfolios/ws` | Real-time portfolio updates (primary) |
+| `GET /health` | Health check |
 
-**Ignore**: Intra-event sibling arbitrage — Polymarket handles this.
-
-## API Endpoints
-
-### Data
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/data/portfolios` | GET | Covering portfolios (alpha) with live prices |
-
-### Pipeline
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/pipeline/status` | GET | Pipeline state & run history |
-| `/pipeline/run/production` | POST | Trigger pipeline (full/incremental/demo) |
-| `/pipeline/reset` | POST | Clear pipeline state |
-
-### Portfolios
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/portfolios/ws` | WS | Real-time portfolio updates with filtering (primary) |
-
-### Prices (Internal/Debug)
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/prices/current` | GET | Raw event prices (not used by frontend) |
-| `/prices/ws` | WS | Raw price stream (not used by frontend) |
-
-> **Note**: Portfolio endpoints embed prices directly. The `/prices/*` endpoints exist for debugging and external API consumers only.
-
-### System
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-
-## Code Style
-
-**DO**: Type hints, `pathlib.Path`, f-strings, `httpx`, `loguru`
-
-**DON'T**: Bare `except:`, hardcoded values, long functions, over-engineering
+> Internal debug endpoints: `/prices/current`, `/prices/ws`
 
 ## Environment
 
 ```bash
-# .env (at project root, gitignored)
+# .env (project root, gitignored)
 OPENROUTER_API_KEY=sk-...
 ```
 
 ## Git
 
-- Commit format: `<type>: <description>`
-- Types: `feat`, `fix`, `docs`, `refactor`, `chore`
+- Format: `<type>: <description>` (feat, fix, docs, refactor, chore)
 - Never commit: API keys, `/data` contents
