@@ -132,7 +132,9 @@ def recalculate_portfolios_with_live_prices(
 
 @router.get("/portfolios")
 async def get_portfolios(
-    limit: int = Query(100, description="Max number of portfolios to return"),
+    limit: int | None = Query(
+        None, description="Max number of portfolios to return (default: no limit)"
+    ),
     offset: int = Query(0, description="Number of portfolios to skip"),
     max_tier: int = Query(3, description="Maximum tier to include (1-3, 1=best)"),
     profitable_only: bool = Query(
@@ -206,7 +208,10 @@ async def get_portfolios(
     total_count = len(portfolios)
 
     # Apply pagination
-    portfolios = portfolios[offset : offset + limit]
+    if limit is not None:
+        portfolios = portfolios[offset : offset + limit]
+    elif offset > 0:
+        portfolios = portfolios[offset:]
 
     # Count by tier
     tier_counts = {}

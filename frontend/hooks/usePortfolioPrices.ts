@@ -253,6 +253,7 @@ export function usePortfolioPrices(
             case 'portfolio_update':
               // Delta update from price changes
               const changed = data.changed as Portfolio[]
+              const removed = (data.removed || []) as string[]
               const newTierChanges = data.tier_changes as TierChange[]
 
               // Update summary if provided (for real-time stats)
@@ -260,7 +261,12 @@ export function usePortfolioPrices(
                 setSummary(data.summary)
               }
 
-              if (changed.length > 0) {
+              // Remove portfolios that no longer match filters
+              if (removed.length > 0) {
+                removed.forEach(id => portfolioMapRef.current.delete(id))
+              }
+
+              if (changed.length > 0 || removed.length > 0) {
                 // Track changes for flash effect
                 const newChangedIds = new Set<string>()
                 const newPriceChanges = new Map<string, PriceChange>()

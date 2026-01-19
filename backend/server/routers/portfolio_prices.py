@@ -76,25 +76,50 @@ class PortfolioConnectionManager:
         if not self.clients:
             return
 
+        # Build set of pair_ids that changed tier (for quick lookup)
+        tier_change_map = {tc["pair_id"]: tc for tc in tier_changes}
+
         async with self._broadcast_lock:
             for websocket, state in list(self.clients.items()):
                 try:
-                    # Filter changes to match client's preferences
-                    filtered_changed = [
-                        p
-                        for p in changed
-                        if self._matches_filters(
-                            p, state.max_tier, state.profitable_only
-                        )
-                    ]
+                    # Separate changed portfolios into those that match filters and those that don't
+                    # Portfolios that no longer match filters should be removed from client display
+                    filtered_changed = []
+                    removed_ids = []
+
+                    for p in changed:
+                        pair_id = p.get("pair_id")
+                        tier = p.get("tier", 4)
+                        expected_profit = p.get("expected_profit", 0)
+
+                        # Check if this portfolio changed tier
+                        tier_change = tier_change_map.get(pair_id)
+
+                        # If tier is now outside filter range
+                        if tier > state.max_tier:
+                            # Only add to removed if it WAS in range before (tier changed from inside to outside)
+                            if (
+                                tier_change
+                                and tier_change["old_tier"] <= state.max_tier
+                            ):
+                                removed_ids.append(pair_id)
+                            continue
+
+                        # If tier is within range, check profitable filter
+                        if state.profitable_only and expected_profit <= 0.001:
+                            # Portfolio is in tier range but no longer profitable
+                            removed_ids.append(pair_id)
+                        else:
+                            filtered_changed.append(p)
 
                     # Only send if there are changes for this client
-                    if filtered_changed or tier_changes:
+                    if filtered_changed or removed_ids or tier_changes:
                         await websocket.send_json(
                             {
                                 "type": "portfolio_update",
                                 "timestamp": timestamp.isoformat(),
                                 "changed": filtered_changed,
+                                "removed": removed_ids,
                                 "tier_changes": tier_changes,
                                 "changed_count": len(filtered_changed),
                                 "summary": portfolio_service.get_summary(),
@@ -236,7 +261,7 @@ async def portfolio_websocket(websocket: WebSocket):
         initial_portfolios = portfolio_service.get_portfolios(
             max_tier=state.max_tier,
             profitable_only=state.profitable_only,
-            limit=100,  # Initial load limit
+            # No limit - send all matching portfolios so counts stay consistent
         )
 
         await websocket.send_json(
@@ -273,7 +298,7 @@ async def portfolio_websocket(websocket: WebSocket):
                     filtered = portfolio_service.get_portfolios(
                         max_tier=new_max_tier,
                         profitable_only=new_profitable_only,
-                        limit=100,
+                        # No limit - send all matching portfolios
                     )
 
                     await websocket.send_json(
