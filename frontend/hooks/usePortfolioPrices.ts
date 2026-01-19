@@ -172,11 +172,14 @@ export function usePortfolioPrices(
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
+      const activeIds = new Set<string>()
+
       setPriceChanges(prev => {
         const filtered = new Map<string, PriceChange>()
         prev.forEach((change, id) => {
           if (now - change.timestamp < CHANGE_FLASH_DURATION) {
             filtered.set(id, change)
+            activeIds.add(id)
           }
         })
         return filtered.size !== prev.size ? filtered : prev
@@ -184,7 +187,9 @@ export function usePortfolioPrices(
 
       setChangedIds(prev => {
         if (prev.size === 0) return prev
-        return new Set()
+        // Only keep IDs that still have active price changes
+        const stillActive = new Set([...prev].filter(id => activeIds.has(id)))
+        return stillActive.size !== prev.size ? stillActive : prev
       })
     }, 500)
 
