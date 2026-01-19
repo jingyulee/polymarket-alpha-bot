@@ -10,7 +10,7 @@ import { densityStyles, Density } from '@/components/terminal/DensityToggle'
 // TYPES
 // =============================================================================
 
-type SortField = 'coverage' | 'expected_profit' | 'total_cost'
+type SortField = 'viability_score' | 'expected_profit' | 'total_cost'
 type SortDirection = 'asc' | 'desc'
 
 interface PriceChange {
@@ -161,9 +161,9 @@ export function PortfolioTable({
                   Backup Bet
                 </th>
                 <SortHeader
-                  field="coverage"
+                  field="viability_score"
                   label="LLM Conf."
-                  hint="LLM-derived payout probability"
+                  hint="LLM validation confidence (set once, stable)"
                   className="w-20"
                 />
                 <SortHeader
@@ -183,7 +183,7 @@ export function PortfolioTable({
             <tbody className="divide-y divide-border">
               {portfolios.map((p, index) => {
                 const isProfitable = p.expected_profit > 0.001
-                const coveragePercent = (p.coverage * 100).toFixed(1)
+                const viabilityPercent = p.viability_score !== undefined ? (p.viability_score * 100).toFixed(0) : null
                 const isChanged = changedIds.has(p.pair_id)
                 const priceChange = priceChanges.get(p.pair_id)
                 const isSelected = index === selectedIndex
@@ -259,16 +259,18 @@ export function PortfolioTable({
                     <td className={styles.cellPadding}>
                       <div className="space-y-1">
                         <span
-                          className={`${styles.fontSize} font-mono ${p.coverage >= 0.95 ? 'text-emerald' : p.coverage >= 0.9 ? 'text-cyan' : 'text-text-secondary'}`}
+                          className={`${styles.fontSize} font-mono ${p.viability_score !== undefined ? (p.viability_score >= 0.8 ? 'text-emerald' : p.viability_score >= 0.6 ? 'text-cyan' : 'text-text-secondary') : 'text-text-muted'}`}
                         >
-                          {coveragePercent}%
+                          {viabilityPercent !== null ? `${viabilityPercent}%` : '—'}
                         </span>
-                        <div className="w-16 h-1 bg-surface-elevated rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-500 ${p.coverage >= 0.95 ? 'bg-emerald' : p.coverage >= 0.9 ? 'bg-cyan' : 'bg-amber'}`}
-                            style={{ width: `${Math.min(100, p.coverage * 100)}%` }}
-                          />
-                        </div>
+                        {p.viability_score !== undefined && (
+                          <div className="w-16 h-1 bg-surface-elevated rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-500 ${p.viability_score >= 0.8 ? 'bg-emerald' : p.viability_score >= 0.6 ? 'bg-cyan' : 'bg-amber'}`}
+                              style={{ width: `${Math.min(100, p.viability_score * 100)}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className={styles.cellPadding}>

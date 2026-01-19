@@ -172,8 +172,8 @@ export function PortfolioModal({ portfolio: p, onClose }: PortfolioModalProps) {
           {/* Key Metrics - Compact row */}
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-surface-elevated rounded-lg p-2.5 text-center group/conf relative">
-              <p className={`text-base font-mono font-semibold ${coverageColor}`}>
-                {(p.coverage * 100).toFixed(1)}%
+              <p className={`text-base font-mono font-semibold ${p.viability_score !== undefined ? (p.viability_score >= 0.8 ? 'text-emerald' : p.viability_score >= 0.6 ? 'text-cyan' : 'text-text-secondary') : 'text-text-muted'}`}>
+                {p.viability_score !== undefined ? `${(p.viability_score * 100).toFixed(0)}%` : '—'}
               </p>
               <p className="text-[9px] text-text-muted uppercase tracking-wide mt-0.5 flex items-center justify-center gap-0.5">
                 LLM Conf.
@@ -181,9 +181,9 @@ export function PortfolioModal({ portfolio: p, onClose }: PortfolioModalProps) {
               </p>
               {/* Tooltip */}
               <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-2 bg-surface border border-border rounded-lg shadow-lg opacity-0 invisible group-hover/conf:opacity-100 group-hover/conf:visible transition-all z-50 text-left pointer-events-none">
-                <p className="text-[10px] font-medium text-violet-400 mb-1">LLM Confidence</p>
-                <p className="text-[9px] text-text-secondary mb-1.5">Probability of $1 payout based on LLM-detected logical relationships.</p>
-                <p className="text-[9px] text-text-muted">Formula: P(target) + P(¬target) × P(cover)</p>
+                <p className="text-[10px] font-medium text-violet-400 mb-1">LLM Validation Confidence</p>
+                <p className="text-[9px] text-text-secondary mb-1.5">How confident the LLM is that this hedge relationship is logically sound.</p>
+                <p className="text-[9px] text-text-muted">Assigned once during validation, never changes.</p>
               </div>
             </div>
             <div className="bg-surface-elevated rounded-lg p-2.5 text-center">

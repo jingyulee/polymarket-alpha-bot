@@ -59,7 +59,7 @@ export function ExportDropdown({ portfolios, filename = 'alphapoly-strategies' }
       `"${p.cover_question.replace(/"/g, '""')}"`,
       p.cover_position,
       p.cover_price.toFixed(2),
-      (p.coverage * 100).toFixed(1) + '%',
+      p.viability_score !== undefined ? (p.viability_score * 100).toFixed(0) + '%' : 'N/A',
       p.total_cost.toFixed(2),
       (p.expected_profit * 100).toFixed(1) + '%',
       (p.loss_probability * 100).toFixed(1) + '%',
@@ -90,7 +90,7 @@ export function ExportDropdown({ portfolios, filename = 'alphapoly-strategies' }
         probability: p.cover_probability,
       },
       metrics: {
-        llm_confidence: p.coverage,
+        llm_confidence: p.viability_score,
         total_cost: p.total_cost,
         expected_profit: p.expected_profit,
         loss_probability: p.loss_probability,

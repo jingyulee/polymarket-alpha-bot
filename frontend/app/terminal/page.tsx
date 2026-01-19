@@ -52,7 +52,7 @@ export default function TerminalPage() {
 
   // Local UI state
   const [profitableOnly, setProfitableOnly] = useState(false)
-  const [sortField, setSortField] = useState<SortField>('coverage')
+  const [sortField, setSortField] = useState<SortField>('viability_score')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [filter, setFilter] = useState('')
@@ -157,9 +157,10 @@ export default function TerminalPage() {
     const sortFn = (a: Portfolio, b: Portfolio) => {
       let aVal: number, bVal: number
       switch (sortField) {
-        case 'coverage':
-          aVal = a.coverage
-          bVal = b.coverage
+        case 'viability_score':
+          // Put undefined values at the end
+          aVal = a.viability_score ?? -1
+          bVal = b.viability_score ?? -1
           break
         case 'expected_profit':
           aVal = a.expected_profit
@@ -170,8 +171,8 @@ export default function TerminalPage() {
           bVal = b.total_cost
           break
         default:
-          aVal = a.coverage
-          bVal = b.coverage
+          aVal = a.viability_score ?? -1
+          bVal = b.viability_score ?? -1
       }
       return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
     }

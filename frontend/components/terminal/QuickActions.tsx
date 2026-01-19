@@ -14,10 +14,11 @@ export function QuickActions({ portfolio: p, isFavorite, onToggleFavorite }: Qui
 
   // Generate strategy summary for clipboard
   const generateSummary = () => {
+    const llmConfidence = p.viability_score !== undefined ? `${(p.viability_score * 100).toFixed(0)}%` : 'N/A'
     return `Strategy: ${p.target_question}
 Target: ${p.target_position} @ $${p.target_price.toFixed(2)}
 Backup: ${p.cover_question} (${p.cover_position} @ $${p.cover_price.toFixed(2)})
-LLM Confidence: ${(p.coverage * 100).toFixed(1)}%
+LLM Confidence: ${llmConfidence}
 Cost: $${p.total_cost.toFixed(2)}
 Expected Return: ${(p.expected_profit * 100).toFixed(1)}%`
   }
