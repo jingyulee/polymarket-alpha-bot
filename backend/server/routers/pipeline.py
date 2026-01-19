@@ -59,9 +59,10 @@ async def get_status() -> dict[str, Any]:
         last_run = state.get_last_run()
         state.close()
         production_state = {
-            "total_events": stats.total_events,
-            "total_entities": stats.total_entities,
-            "total_edges": stats.total_edges,
+            "total_groups": stats.total_groups,
+            "total_implications": stats.total_implications,
+            "total_validated_pairs": stats.total_validated_pairs,
+            "total_portfolios": stats.total_portfolios,
             "last_full_run": stats.last_full_run,
             "last_refresh": stats.last_refresh,
             "last_run": last_run,

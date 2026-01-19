@@ -7,19 +7,14 @@ Manages:
 - Validated market pairs (cached)
 - Covering portfolios with metrics
 - Current market prices
-
-Note: This is the NEW covering portfolios system.
-Legacy tables (events, entities, entity_mappings, graph_edges) are kept for backward
-compatibility but are not used by the new pipeline.
 """
 
 import json
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
 from loguru import logger
 
 # =============================================================================
@@ -30,14 +25,7 @@ from core.paths import LIVE_DIR, SEED_DIR
 
 STATE_DB_PATH = LIVE_DIR / "state.db"
 
-# Legacy paths (kept for backward compatibility)
-EMBEDDINGS_PATH = LIVE_DIR / "embeddings.npy"
-EMBEDDINGS_META_PATH = LIVE_DIR / "embeddings_meta.json"
-GRAPH_PATH = LIVE_DIR / "graph.json"
-EVENTS_PATH = LIVE_DIR / "events.json"
-OPPORTUNITIES_PATH = LIVE_DIR / "opportunities.json"
-
-# New covering portfolios paths
+# Live data paths
 GROUPS_PATH = LIVE_DIR / "groups.json"
 PORTFOLIOS_PATH = LIVE_DIR / "portfolios.json"
 
@@ -51,57 +39,15 @@ SEED_DATA_PATH = SEED_DIR / "seed.json"
 
 
 @dataclass
-class GraphData:
-    """In-memory representation of knowledge graph."""
-
-    nodes: list[dict] = field(default_factory=list)
-    edges: list[dict] = field(default_factory=list)
-    transitive_chains: list[dict] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        return {
-            "nodes": self.nodes,
-            "edges": self.edges,
-            "transitive_chains": self.transitive_chains,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "GraphData":
-        return cls(
-            nodes=data.get("nodes", []),
-            edges=data.get("edges", []),
-            transitive_chains=data.get("transitive_chains", []),
-        )
-
-
-@dataclass
 class StateStats:
     """Statistics about current state."""
 
-    total_events: int
-    total_entities: int
-    total_edges: int
+    total_groups: int
+    total_implications: int
+    total_validated_pairs: int
+    total_portfolios: int
     last_full_run: str | None
     last_refresh: str | None
-    # New covering portfolios stats
-    total_groups: int = 0
-    total_implications: int = 0
-    total_validated_pairs: int = 0
-    total_portfolios: int = 0
-
-
-@dataclass
-class PortfolioData:
-    """In-memory representation of covering portfolios."""
-
-    portfolios: list[dict] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        return {"portfolios": self.portfolios}
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "PortfolioData":
-        return cls(portfolios=data.get("portfolios", []))
 
 
 # =============================================================================
@@ -113,8 +59,8 @@ class PipelineState:
     """
     SQLite-backed pipeline state manager.
 
-    Provides O(1) lookups for processed events and efficient
-    batch operations for adding new data.
+    Provides O(1) lookups for groups, implications, validated pairs,
+    and portfolios with efficient batch operations.
     """
 
     def __init__(self, db_path: Path | None = None):
@@ -126,10 +72,7 @@ class PipelineState:
         self.conn.row_factory = sqlite3.Row
         self._init_tables()
 
-        # In-memory caches for fast access during pipeline run
-        self._processed_ids_cache: set[str] | None = None
-        self._entity_mappings_cache: dict[str, str] | None = None
-        # New covering portfolios caches
+        # In-memory cache for fast access during pipeline run
         self._processed_group_ids_cache: set[str] | None = None
 
         # Auto-import seed data if database is empty
@@ -138,41 +81,6 @@ class PipelineState:
     def _init_tables(self) -> None:
         """Initialize database schema."""
         self.conn.executescript("""
-            -- Processed events
-            CREATE TABLE IF NOT EXISTS events (
-                id TEXT PRIMARY KEY,
-                title TEXT,
-                data JSON,
-                processed_at TEXT
-            );
-
-            -- Extracted entities
-            CREATE TABLE IF NOT EXISTS entities (
-                id TEXT PRIMARY KEY,
-                text TEXT,
-                canonical TEXT,
-                entity_type TEXT,
-                frequency INTEGER DEFAULT 1,
-                data JSON
-            );
-
-            -- Entity normalization mappings (raw -> canonical)
-            CREATE TABLE IF NOT EXISTS entity_mappings (
-                raw_text TEXT PRIMARY KEY,
-                canonical TEXT,
-                mapping_type TEXT  -- 'fuzzy', 'llm', 'exact'
-            );
-
-            -- Graph edges (relations between events)
-            CREATE TABLE IF NOT EXISTS graph_edges (
-                source_id TEXT,
-                target_id TEXT,
-                relation_type TEXT,
-                confidence REAL,
-                data JSON,
-                PRIMARY KEY (source_id, target_id, relation_type)
-            );
-
             -- Pipeline run metadata
             CREATE TABLE IF NOT EXISTS runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -190,18 +98,7 @@ class PipelineState:
                 value TEXT
             );
 
-            -- Indexes for fast lookups
-            CREATE INDEX IF NOT EXISTS idx_events_id ON events(id);
-            CREATE INDEX IF NOT EXISTS idx_entities_canonical ON entities(canonical);
-            CREATE INDEX IF NOT EXISTS idx_entity_mappings_canonical ON entity_mappings(canonical);
-            CREATE INDEX IF NOT EXISTS idx_graph_edges_source ON graph_edges(source_id);
-            CREATE INDEX IF NOT EXISTS idx_graph_edges_target ON graph_edges(target_id);
-
-            -- =====================================================================
-            -- NEW: Covering Portfolios System Tables
-            -- =====================================================================
-
-            -- Market groups (replaces events for the new system)
+            -- Market groups
             CREATE TABLE IF NOT EXISTS groups (
                 group_id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
@@ -296,208 +193,6 @@ class PipelineState:
             )
             self.conn.commit()
             logger.info("Migration: Added is_valid column to validated_pairs")
-
-    # =========================================================================
-    # EVENT MANAGEMENT
-    # =========================================================================
-
-    def get_processed_ids(self) -> set[str]:
-        """Get all processed event IDs. Cached for performance."""
-        if self._processed_ids_cache is None:
-            cursor = self.conn.execute("SELECT id FROM events")
-            self._processed_ids_cache = {row[0] for row in cursor.fetchall()}
-        return self._processed_ids_cache
-
-    def get_new_ids(self, all_ids: list[str]) -> set[str]:
-        """Get IDs that haven't been processed yet."""
-        processed = self.get_processed_ids()
-        return set(all_ids) - processed
-
-    def get_all_events(self) -> list[dict]:
-        """Get all processed events."""
-        cursor = self.conn.execute("SELECT data FROM events")
-        return [json.loads(row[0]) for row in cursor.fetchall()]
-
-    def get_event(self, event_id: str) -> dict | None:
-        """Get a single event by ID."""
-        cursor = self.conn.execute("SELECT data FROM events WHERE id = ?", (event_id,))
-        row = cursor.fetchone()
-        return json.loads(row[0]) if row else None
-
-    def add_events(self, events: list[dict]) -> None:
-        """Add new processed events."""
-        now = datetime.now(timezone.utc).isoformat()
-        self.conn.executemany(
-            """
-            INSERT OR REPLACE INTO events (id, title, data, processed_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            [(e["id"], e.get("title", ""), json.dumps(e), now) for e in events],
-        )
-        self.conn.commit()
-        # Invalidate cache
-        self._processed_ids_cache = None
-
-    def update_event_prices(self, price_updates: dict[str, float]) -> None:
-        """Update prices for existing events."""
-        for event_id, price in price_updates.items():
-            cursor = self.conn.execute(
-                "SELECT data FROM events WHERE id = ?", (event_id,)
-            )
-            row = cursor.fetchone()
-            if row:
-                event = json.loads(row[0])
-                # Update price in markets
-                for market in event.get("markets", []):
-                    if "outcomePrices" in market:
-                        market["outcomePrices"] = [price, 1 - price]
-                self.conn.execute(
-                    "UPDATE events SET data = ? WHERE id = ?",
-                    (json.dumps(event), event_id),
-                )
-        self.conn.commit()
-
-    # =========================================================================
-    # ENTITY MANAGEMENT
-    # =========================================================================
-
-    def get_entity_mappings(self) -> dict[str, str]:
-        """Get all entity mappings (raw -> canonical). Cached."""
-        if self._entity_mappings_cache is None:
-            cursor = self.conn.execute(
-                "SELECT raw_text, canonical FROM entity_mappings"
-            )
-            self._entity_mappings_cache = {row[0]: row[1] for row in cursor.fetchall()}
-        return self._entity_mappings_cache
-
-    def add_entity_mappings(
-        self, mappings: dict[str, str], mapping_type: str = "exact"
-    ) -> None:
-        """Add new entity mappings."""
-        self.conn.executemany(
-            """
-            INSERT OR REPLACE INTO entity_mappings (raw_text, canonical, mapping_type)
-            VALUES (?, ?, ?)
-            """,
-            [(raw, canonical, mapping_type) for raw, canonical in mappings.items()],
-        )
-        self.conn.commit()
-        self._entity_mappings_cache = None
-
-    def get_all_entities(self) -> list[dict]:
-        """Get all entities."""
-        cursor = self.conn.execute("SELECT data FROM entities")
-        return [json.loads(row[0]) for row in cursor.fetchall()]
-
-    def add_entities(self, entities: list[dict]) -> None:
-        """Add or update entities."""
-        self.conn.executemany(
-            """
-            INSERT OR REPLACE INTO entities
-            (id, text, canonical, entity_type, frequency, data)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    e.get("id", e.get("text", "")),
-                    e.get("text", ""),
-                    e.get("canonical", e.get("text", "")),
-                    e.get("type", "UNKNOWN"),
-                    e.get("frequency", 1),
-                    json.dumps(e),
-                )
-                for e in entities
-            ],
-        )
-        self.conn.commit()
-
-    # =========================================================================
-    # GRAPH MANAGEMENT
-    # =========================================================================
-
-    def get_graph(self) -> GraphData:
-        """Load graph from JSON file."""
-        if GRAPH_PATH.exists():
-            data = json.loads(GRAPH_PATH.read_text())
-            return GraphData.from_dict(data)
-        return GraphData()
-
-    def save_graph(self, graph: GraphData) -> None:
-        """Save graph to JSON file."""
-        GRAPH_PATH.write_text(json.dumps(graph.to_dict(), indent=2))
-
-    def add_graph_edges(self, edges: list[dict]) -> None:
-        """Add edges to the graph (SQLite for queries, JSON for export)."""
-        self.conn.executemany(
-            """
-            INSERT OR REPLACE INTO graph_edges
-            (source_id, target_id, relation_type, confidence, data)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    e["source_id"],
-                    e["target_id"],
-                    e["relation_type"],
-                    e.get("confidence", 0.5),
-                    json.dumps(e),
-                )
-                for e in edges
-            ],
-        )
-        self.conn.commit()
-
-    def get_edges_for_event(self, event_id: str) -> list[dict]:
-        """Get all edges involving an event."""
-        cursor = self.conn.execute(
-            """
-            SELECT data FROM graph_edges
-            WHERE source_id = ? OR target_id = ?
-            """,
-            (event_id, event_id),
-        )
-        return [json.loads(row[0]) for row in cursor.fetchall()]
-
-    # =========================================================================
-    # EMBEDDINGS MANAGEMENT
-    # =========================================================================
-
-    def get_embeddings(self) -> tuple[np.ndarray | None, list[str]]:
-        """Load embeddings and their event IDs."""
-        if not EMBEDDINGS_PATH.exists():
-            return None, []
-
-        embeddings = np.load(EMBEDDINGS_PATH)
-
-        if EMBEDDINGS_META_PATH.exists():
-            meta = json.loads(EMBEDDINGS_META_PATH.read_text())
-            event_ids = meta.get("event_ids", [])
-        else:
-            event_ids = []
-
-        return embeddings, event_ids
-
-    def save_embeddings(self, embeddings: np.ndarray, event_ids: list[str]) -> None:
-        """Save embeddings and metadata."""
-        np.save(EMBEDDINGS_PATH, embeddings)
-        EMBEDDINGS_META_PATH.write_text(
-            json.dumps({"event_ids": event_ids, "shape": list(embeddings.shape)})
-        )
-
-    def append_embeddings(
-        self, new_embeddings: np.ndarray, new_event_ids: list[str]
-    ) -> None:
-        """Append new embeddings to existing."""
-        existing, existing_ids = self.get_embeddings()
-
-        if existing is not None and len(existing) > 0:
-            combined = np.vstack([existing, new_embeddings])
-            combined_ids = existing_ids + new_event_ids
-        else:
-            combined = new_embeddings
-            combined_ids = new_event_ids
-
-        self.save_embeddings(combined, combined_ids)
 
     # =========================================================================
     # RUN MANAGEMENT
@@ -604,7 +299,7 @@ class PipelineState:
         return len(orphaned)
 
     # =========================================================================
-    # GROUP MANAGEMENT (NEW - Covering Portfolios)
+    # GROUP MANAGEMENT
     # =========================================================================
 
     def get_processed_group_ids(self) -> set[str]:
@@ -658,7 +353,7 @@ class PipelineState:
         self._processed_group_ids_cache = None
 
     # =========================================================================
-    # MARKET MANAGEMENT (NEW - Covering Portfolios)
+    # MARKET MANAGEMENT
     # =========================================================================
 
     def add_markets(self, markets: list[dict]) -> None:
@@ -711,39 +406,8 @@ class PipelineState:
             )
         self.conn.commit()
 
-    def get_market_prices(self) -> dict[str, dict]:
-        """Get all market prices."""
-        cursor = self.conn.execute("SELECT market_id, price_yes, price_no FROM markets")
-        return {
-            row[0]: {"price_yes": row[1], "price_no": row[2]}
-            for row in cursor.fetchall()
-        }
-
-    def get_market(self, market_id: str) -> dict | None:
-        """Get a single market by ID."""
-        cursor = self.conn.execute(
-            """
-            SELECT market_id, group_id, question, price_yes, price_no,
-                   resolution_date, bracket_label
-            FROM markets WHERE market_id = ?
-            """,
-            (market_id,),
-        )
-        row = cursor.fetchone()
-        if row:
-            return {
-                "id": row[0],
-                "group_id": row[1],
-                "question": row[2],
-                "price_yes": row[3],
-                "price_no": row[4],
-                "resolution_date": row[5],
-                "bracket_label": row[6],
-            }
-        return None
-
     # =========================================================================
-    # IMPLICATION MANAGEMENT (NEW - Covering Portfolios, CACHED)
+    # IMPLICATION MANAGEMENT (CACHED)
     # =========================================================================
 
     def get_implication(self, group_id: str) -> dict | None:
@@ -816,19 +480,8 @@ class PipelineState:
         )
         self.conn.commit()
 
-    def get_groups_without_implications(self) -> list[str]:
-        """Get group IDs that don't have cached implications."""
-        cursor = self.conn.execute(
-            """
-            SELECT g.group_id FROM groups g
-            LEFT JOIN implications i ON g.group_id = i.group_id
-            WHERE i.group_id IS NULL
-            """
-        )
-        return [row[0] for row in cursor.fetchall()]
-
     # =========================================================================
-    # VALIDATED PAIRS MANAGEMENT (NEW - Covering Portfolios, CACHED)
+    # VALIDATED PAIRS MANAGEMENT (CACHED)
     # =========================================================================
 
     def get_validated_pair(self, pair_id: str) -> dict | None:
@@ -938,7 +591,7 @@ class PipelineState:
         return cursor.fetchone() is not None
 
     # =========================================================================
-    # PORTFOLIO MANAGEMENT (NEW - Covering Portfolios)
+    # PORTFOLIO MANAGEMENT
     # =========================================================================
 
     def get_portfolios(self) -> list[dict]:
@@ -1003,34 +656,6 @@ class PipelineState:
         )
         self.conn.commit()
 
-    def get_portfolios_by_tier(self, tier: int) -> list[dict]:
-        """Get portfolios filtered by tier."""
-        cursor = self.conn.execute(
-            "SELECT data FROM portfolios WHERE tier = ? ORDER BY coverage DESC",
-            (tier,),
-        )
-        return [json.loads(row[0]) for row in cursor.fetchall()]
-
-    def export_portfolios(self, portfolios: list[dict]) -> None:
-        """Export portfolios to JSON file for API consumption."""
-        export_timestamp = datetime.now(timezone.utc).isoformat()
-        portfolios_data = {
-            "_meta": {
-                "exported_at": export_timestamp,
-                "count": len(portfolios),
-                "tier_thresholds": {
-                    "tier_1": ">=95%",
-                    "tier_2": ">=90%",
-                    "tier_3": ">=85%",
-                    "tier_4": ">=0%",
-                },
-                "source": "pipeline",
-            },
-            "portfolios": portfolios,
-        }
-        PORTFOLIOS_PATH.write_text(json.dumps(portfolios_data, indent=2))
-        logger.info(f"Exported {len(portfolios)} portfolios to {PORTFOLIOS_PATH.name}")
-
     # =========================================================================
     # METADATA
     # =========================================================================
@@ -1055,16 +680,6 @@ class PipelineState:
 
     def get_stats(self) -> StateStats:
         """Get current state statistics."""
-        # Legacy stats
-        events_count = self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
-        entities_count = self.conn.execute("SELECT COUNT(*) FROM entities").fetchone()[
-            0
-        ]
-        edges_count = self.conn.execute("SELECT COUNT(*) FROM graph_edges").fetchone()[
-            0
-        ]
-
-        # New covering portfolios stats
         groups_count = self.conn.execute("SELECT COUNT(*) FROM groups").fetchone()[0]
         implications_count = self.conn.execute(
             "SELECT COUNT(*) FROM implications"
@@ -1077,58 +692,35 @@ class PipelineState:
         ).fetchone()[0]
 
         return StateStats(
-            total_events=events_count,
-            total_entities=entities_count,
-            total_edges=edges_count,
-            last_full_run=self.get_metadata("last_full_run"),
-            last_refresh=self.get_metadata("last_refresh_run"),
             total_groups=groups_count,
             total_implications=implications_count,
             total_validated_pairs=validated_pairs_count,
             total_portfolios=portfolios_count,
+            last_full_run=self.get_metadata("last_full_run"),
+            last_refresh=self.get_metadata("last_refresh_run"),
         )
 
     def reset(self) -> None:
         """Reset all state (for full reprocessing)."""
         logger.warning("Resetting pipeline state...")
 
-        # Clear all tables (legacy + new covering portfolios)
+        # Clear all tables
         self.conn.executescript("""
-            -- Legacy tables
-            DELETE FROM events;
-            DELETE FROM entities;
-            DELETE FROM entity_mappings;
-            DELETE FROM graph_edges;
             DELETE FROM metadata;
-            -- New covering portfolios tables
             DELETE FROM groups;
             DELETE FROM implications;
             DELETE FROM validated_pairs;
             DELETE FROM portfolios;
             DELETE FROM markets;
-            -- Run history
             DELETE FROM runs;
         """)
         self.conn.commit()
 
         # Clear caches
-        self._processed_ids_cache = None
-        self._entity_mappings_cache = None
         self._processed_group_ids_cache = None
 
-        # Remove ALL _live files (legacy + new)
-        live_files = [
-            # Legacy files
-            EMBEDDINGS_PATH,
-            EMBEDDINGS_META_PATH,
-            GRAPH_PATH,
-            EVENTS_PATH,
-            OPPORTUNITIES_PATH,
-            # New covering portfolios files
-            GROUPS_PATH,
-            PORTFOLIOS_PATH,
-        ]
-        for path in live_files:
+        # Remove _live files
+        for path in [GROUPS_PATH, PORTFOLIOS_PATH]:
             if path.exists():
                 path.unlink()
                 logger.debug(f"Deleted {path.name}")
