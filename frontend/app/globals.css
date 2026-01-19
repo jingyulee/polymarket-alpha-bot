@@ -70,32 +70,6 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Component Utilities
-   -------------------------------------------------------------------------- */
-
-/* Clean card with left accent */
-.accent-card {
-  position: relative;
-  background: rgb(var(--color-surface));
-  border: 1px solid rgb(var(--color-border));
-  border-left: 2px solid rgb(var(--color-cyan));
-  transition: all 0.15s ease;
-}
-
-.accent-card:hover {
-  background: rgb(var(--color-surface-hover));
-}
-
-/* Alpha signal cards - subtle left border accent */
-.alpha-card-buy {
-  border-left: 2px solid rgb(var(--color-alpha-buy));
-}
-
-.alpha-card-sell {
-  border-left: 2px solid rgb(var(--color-alpha-sell));
-}
-
-/* --------------------------------------------------------------------------
    Button Styles
    -------------------------------------------------------------------------- */
 .btn-primary {
@@ -143,44 +117,6 @@ body {
 .btn-ghost:hover {
   background: rgb(var(--color-surface-elevated));
   color: rgb(var(--color-text-primary));
-}
-
-/* --------------------------------------------------------------------------
-   Table Styles
-   -------------------------------------------------------------------------- */
-.terminal-table {
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.terminal-table thead {
-  background: rgb(var(--color-surface));
-}
-
-.terminal-table th {
-  padding: 0.875rem 1rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgb(var(--color-text-muted));
-  border-bottom: 1px solid rgb(var(--color-border));
-  text-align: left;
-}
-
-.terminal-table td {
-  padding: 0.875rem 1rem;
-  font-size: 0.875rem;
-  color: rgb(var(--color-text-secondary));
-  border-bottom: 1px solid rgb(var(--color-border) / 0.5);
-}
-
-.terminal-table tbody tr {
-  transition: background-color 0.15s ease;
-}
-
-.terminal-table tbody tr:hover {
-  background: rgb(var(--color-surface-hover));
 }
 
 /* --------------------------------------------------------------------------
