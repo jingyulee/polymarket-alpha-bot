@@ -3,6 +3,7 @@
 import base64
 import os
 
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
@@ -56,5 +57,5 @@ def decrypt_private_key(encrypted_b64: str, salt_b64: str, password: str) -> str
     try:
         plaintext = aesgcm.decrypt(nonce, ciphertext, None)
         return plaintext.decode()
-    except Exception:
+    except InvalidTag:
         raise ValueError("Invalid password")
