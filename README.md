@@ -1,6 +1,6 @@
 # Alphapoly
 
-Polymarket alpha detection: finds covering portfolios across correlated prediction markets based on pre-defined rules and LLM decisions.
+Polymarket alpha detection platform. Finds covering portfolios across correlated prediction markets using predefined rules and LLM decisions. The system detects relationships between markets, classifies them to identify hedging pairs, and tracks their prices—acting when favorable pricing creates profit opportunities. Automated trading is under development (see experiments/trading); for now, users can seamlessly open identified markets directly on Polymarket.
 
 ![Dashboard Screenshot](assets/dashboard-screenshot.png)
 
