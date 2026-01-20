@@ -10,7 +10,7 @@ import httpx
 from web3 import Web3
 from loguru import logger
 
-from core.wallet.contracts import CONTRACTS, ERC20_ABI, CTF_ABI
+from core.wallet.contracts import CONTRACTS, CTF_ABI
 from core.wallet.manager import WalletManager
 
 
@@ -157,11 +157,11 @@ class TradingExecutor:
         token_id: str,
         amount: float,
         price: float,
-    ) -> tuple[Optional[str], bool]:
-        """Sell tokens via CLOB. Returns (order_id, filled)."""
+    ) -> tuple[Optional[str], bool, Optional[str]]:
+        """Sell tokens via CLOB. Returns (order_id, success, error_message)."""
         client = self._get_clob_client()
         if not client:
-            return None, False
+            return None, False, "CLOB client initialization failed"
 
         try:
             from py_clob_client.clob_types import OrderArgs, OrderType
@@ -180,10 +180,14 @@ class TradingExecutor:
             result = client.post_order(order, OrderType.GTC)
             order_id = result.get("orderID", str(result)[:40])
             logger.info(f"CLOB order placed: {order_id}")
-            return order_id, True
+            return order_id, True, None
         except Exception as e:
-            logger.error(f"CLOB sell error: {e}")
-            return None, False
+            error_msg = str(e)
+            # Extract meaningful error from Cloudflare block
+            if "403" in error_msg and "blocked" in error_msg.lower():
+                error_msg = "IP blocked by Cloudflare - CLOB API inaccessible from this network"
+            logger.error(f"CLOB sell error: {error_msg}")
+            return None, False, error_msg
 
     async def buy_single_position(
         self,
@@ -233,22 +237,24 @@ class TradingExecutor:
         # Sell unwanted side
         clob_order_id = None
         clob_filled = False
+        clob_error = None
 
         if not skip_clob_sell and unwanted_token:
-            clob_order_id, clob_filled = self._sell_via_clob(
+            clob_order_id, clob_filled, clob_error = self._sell_via_clob(
                 unwanted_token,
                 amount,
                 unwanted_price,
             )
 
         return TradeResult(
-            success=True,
+            success=True,  # Split succeeded
             market_id=market_id,
             position=position,
             amount=amount,
             split_tx=split_tx,
             clob_order_id=clob_order_id,
             clob_filled=clob_filled,
+            error=clob_error,  # CLOB error if sell failed
         )
 
     async def buy_pair(

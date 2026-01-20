@@ -46,6 +46,7 @@ class BuyPairResponse(BaseModel):
     cover: TradeResultModel
     total_spent: float
     final_balances: dict
+    warnings: list[str] = []  # CLOB failures, partial execution, etc.
 
 
 class EstimateResponse(BaseModel):
@@ -83,6 +84,16 @@ async def buy_pair(req: BuyPairRequest):
             skip_clob_sell=req.skip_clob_sell,
         )
 
+        # Collect warnings for CLOB failures
+        warnings = []
+        if result.target.error:
+            warnings.append(f"Target CLOB sell failed: {result.target.error}")
+        if result.cover.error:
+            warnings.append(f"Cover CLOB sell failed: {result.cover.error}")
+
+        if warnings:
+            warnings.append("You now hold both YES and NO tokens. Sell unwanted side manually on Polymarket.")
+
         return BuyPairResponse(
             success=result.success,
             pair_id=result.pair_id,
@@ -108,6 +119,7 @@ async def buy_pair(req: BuyPairRequest):
             ),
             total_spent=result.total_spent,
             final_balances=result.final_balances,
+            warnings=warnings,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

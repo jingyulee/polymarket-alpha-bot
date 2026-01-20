@@ -19,6 +19,7 @@ interface TradeResult {
   cover: { split_tx?: string; clob_order_id?: string; error?: string }
   total_spent: number
   final_balances: { pol: number; usdc_e: number }
+  warnings?: string[]
 }
 
 export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
@@ -183,13 +184,30 @@ export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
           {step === 'success' && result && (
             <div className="py-4 space-y-4">
               <div className="text-center">
-                <div className="w-12 h-12 bg-emerald/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
+                <div className={`w-12 h-12 ${result.warnings?.length ? 'bg-amber-500/20' : 'bg-emerald/20'} rounded-full flex items-center justify-center mx-auto mb-3`}>
+                  {result.warnings?.length ? (
+                    <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
                 </div>
-                <h3 className="text-lg font-semibold text-text-primary">Purchase Complete</h3>
+                <h3 className="text-lg font-semibold text-text-primary">
+                  {result.warnings?.length ? 'Partial Success' : 'Purchase Complete'}
+                </h3>
               </div>
+
+              {/* Warnings */}
+              {result.warnings && result.warnings.length > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/25 rounded-lg p-3 space-y-1">
+                  {result.warnings.map((warning, i) => (
+                    <p key={i} className="text-amber-500 text-sm">{warning}</p>
+                  ))}
+                </div>
+              )}
 
               <div className="bg-surface-elevated rounded-lg p-3 space-y-2 text-sm">
                 <div className="flex justify-between">

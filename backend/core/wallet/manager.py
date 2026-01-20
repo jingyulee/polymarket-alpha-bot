@@ -1,8 +1,6 @@
 """Wallet management: generate, import, unlock, status."""
 
-import os
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 from eth_account import Account
