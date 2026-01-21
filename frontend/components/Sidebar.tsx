@@ -7,6 +7,7 @@ import { getApiDocsUrl } from '@/config/api-config'
 const getNavigation = () => [
   { name: 'Terminal', href: '/terminal' },
   { name: 'Pipeline', href: '/pipeline' },
+  { name: 'Settings', href: '/settings' },
   { name: 'API Docs', href: getApiDocsUrl(), external: true },
 ]
 

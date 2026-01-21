@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getCoverageColor, getCoverageBg } from '@/config/tier-config'
+import { BuyPairModal } from '@/components/trading/BuyPairModal'
 import type { Portfolio } from '@/types/portfolio'
 
 interface PortfolioModalProps {
@@ -14,6 +15,7 @@ interface PortfolioModalProps {
 // =============================================================================
 
 export function PortfolioModal({ portfolio: p, onClose }: PortfolioModalProps) {
+  const [showBuyModal, setShowBuyModal] = useState(false)
   const isProfitable = p.expected_profit > 0.001
   const coverageColor = getCoverageColor(p.coverage)
   const coverageBg = getCoverageBg(p.coverage)
@@ -153,24 +155,40 @@ export function PortfolioModal({ portfolio: p, onClose }: PortfolioModalProps) {
             </div>
           </div>
 
-          {/* Action Button */}
-          {(p.target_group_slug || p.cover_group_slug) && (
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            {(p.target_group_slug || p.cover_group_slug) && (
+              <button
+                onClick={() => {
+                  if (p.target_group_slug) {
+                    window.open(`https://polymarket.com/event/${p.target_group_slug}`, '_blank')
+                  }
+                  if (p.cover_group_slug) {
+                    window.open(`https://polymarket.com/event/${p.cover_group_slug}`, '_blank')
+                  }
+                }}
+                className="flex-1 py-2.5 px-4 bg-cyan/10 hover:bg-cyan/15 border border-cyan/25 hover:border-cyan/40 rounded-lg text-cyan text-sm font-medium transition-all flex items-center justify-center gap-2"
+              >
+                <span>Open Markets</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            )}
             <button
-              onClick={() => {
-                if (p.target_group_slug) {
-                  window.open(`https://polymarket.com/event/${p.target_group_slug}`, '_blank')
-                }
-                if (p.cover_group_slug) {
-                  window.open(`https://polymarket.com/event/${p.cover_group_slug}`, '_blank')
-                }
-              }}
-              className="w-full py-2.5 px-4 bg-cyan/10 hover:bg-cyan/15 border border-cyan/25 hover:border-cyan/40 rounded-lg text-cyan text-sm font-medium transition-all flex items-center justify-center gap-2"
+              onClick={() => setShowBuyModal(true)}
+              className="flex-1 py-2.5 px-4 bg-emerald/10 hover:bg-emerald/15 border border-emerald/25 hover:border-emerald/40 rounded-lg text-emerald text-sm font-medium transition-all flex items-center justify-center gap-2"
             >
-              <span>Open Markets on Polymarket</span>
+              <span>Buy Pair On-Chain</span>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </button>
+          </div>
+
+          {/* Buy Modal */}
+          {showBuyModal && (
+            <BuyPairModal portfolio={p} onClose={() => setShowBuyModal(false)} />
           )}
         </div>
       </div>
