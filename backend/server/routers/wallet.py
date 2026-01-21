@@ -25,7 +25,9 @@ def get_wallet_manager() -> WalletManager:
         wallet_path = Path("data/wallet.enc")
         rpc_url = os.environ.get("CHAINSTACK_NODE", "")
         if not rpc_url:
-            raise HTTPException(status_code=500, detail="CHAINSTACK_NODE not configured")
+            raise HTTPException(
+                status_code=500, detail="CHAINSTACK_NODE not configured"
+            )
 
         storage = WalletStorage(wallet_path)
         _wallet_manager = WalletManager(storage, rpc_url)
@@ -88,7 +90,9 @@ async def get_status():
         balances={
             "pol": status.balances.pol,
             "usdc_e": status.balances.usdc_e,
-        } if status.balances else None,
+        }
+        if status.balances
+        else None,
         approvals_set=status.approvals_set,
     )
 

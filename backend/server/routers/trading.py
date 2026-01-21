@@ -92,7 +92,9 @@ async def buy_pair(req: BuyPairRequest):
             warnings.append(f"Cover CLOB sell failed: {result.cover.error}")
 
         if warnings:
-            warnings.append("You now hold both YES and NO tokens. Sell unwanted side manually on Polymarket.")
+            warnings.append(
+                "You now hold both YES and NO tokens. Sell unwanted side manually on Polymarket."
+            )
 
         return BuyPairResponse(
             success=result.success,
@@ -147,12 +149,16 @@ async def estimate_buy_pair(req: BuyPairRequest):
             target_market={
                 "question": target_market.question[:60],
                 "position": req.target_position,
-                "price": target_market.yes_price if req.target_position == "YES" else target_market.no_price,
+                "price": target_market.yes_price
+                if req.target_position == "YES"
+                else target_market.no_price,
             },
             cover_market={
                 "question": cover_market.question[:60],
                 "position": req.cover_position,
-                "price": cover_market.yes_price if req.cover_position == "YES" else cover_market.no_price,
+                "price": cover_market.yes_price
+                if req.cover_position == "YES"
+                else cover_market.no_price,
             },
             wallet_balance=balances.usdc_e,
             sufficient_balance=balances.usdc_e >= total_cost,

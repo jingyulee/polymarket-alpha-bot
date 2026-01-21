@@ -60,7 +60,9 @@ class TradingExecutor:
     async def get_market_info(self, market_id: str) -> MarketInfo:
         """Fetch market info from Polymarket API."""
         async with httpx.AsyncClient(timeout=10.0) as http:
-            resp = await http.get(f"https://gamma-api.polymarket.com/markets/{market_id}")
+            resp = await http.get(
+                f"https://gamma-api.polymarket.com/markets/{market_id}"
+            )
             data = resp.json()
 
         clob_tokens = json.loads(data.get("clobTokenIds", "[]"))
@@ -88,7 +90,9 @@ class TradingExecutor:
         proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY")
         if proxy:
             logger.info(f"Using proxy: {proxy[:30]}...")
-            clob_helpers._http_client = httpx.Client(http2=True, proxy=proxy, timeout=30.0)
+            clob_helpers._http_client = httpx.Client(
+                http2=True, proxy=proxy, timeout=30.0
+            )
 
         private_key = self.wallet.get_unlocked_key()
         address = self.wallet.address
@@ -134,13 +138,15 @@ class TradingExecutor:
             condition_bytes,
             [1, 2],  # partition for YES, NO
             amount_wei,
-        ).build_transaction({
-            "from": address,
-            "nonce": w3.eth.get_transaction_count(address),
-            "gas": 300000,
-            "gasPrice": w3.eth.gas_price,
-            "chainId": 137,
-        })
+        ).build_transaction(
+            {
+                "from": address,
+                "nonce": w3.eth.get_transaction_count(address),
+                "gas": 300000,
+                "gasPrice": w3.eth.gas_price,
+                "chainId": 137,
+            }
+        )
 
         signed = account.sign_transaction(tx)
         tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
@@ -158,7 +164,7 @@ class TradingExecutor:
         amount: float,
         price: float,
     ) -> tuple[Optional[str], bool, Optional[str]]:
-        """Sell tokens via CLOB. Returns (order_id, success, error_message)."""
+        """Sell tokens via CLOB using FOK market order. Returns (order_id, filled, error_message)."""
         client = self._get_clob_client()
         if not client:
             return None, False, "CLOB client initialization failed"
@@ -167,7 +173,9 @@ class TradingExecutor:
             from py_clob_client.clob_types import OrderArgs, OrderType
             from py_clob_client.order_builder.constants import SELL
 
-            sell_price = round(price * 0.98, 2)  # 2% below market
+            # Use FOK (Fill or Kill) for instant execution
+            # Set low price to match any buy orders (market sell)
+            sell_price = round(max(price * 0.90, 0.01), 2)  # 10% below market, min 0.01
 
             order = client.create_order(
                 OrderArgs(
@@ -177,15 +185,20 @@ class TradingExecutor:
                     side=SELL,
                 )
             )
-            result = client.post_order(order, OrderType.GTC)
+            result = client.post_order(order, OrderType.FOK)
             order_id = result.get("orderID", str(result)[:40])
-            logger.info(f"CLOB order placed: {order_id}")
+            logger.info(f"CLOB market order filled: {order_id}")
             return order_id, True, None
         except Exception as e:
             error_msg = str(e)
             # Extract meaningful error from Cloudflare block
             if "403" in error_msg and "blocked" in error_msg.lower():
-                error_msg = "IP blocked by Cloudflare - CLOB API inaccessible from this network"
+                error_msg = (
+                    "IP blocked by Cloudflare - CLOB API inaccessible from this network"
+                )
+            # FOK orders fail if they can't fill completely
+            if "no match" in error_msg.lower() or "insufficient" in error_msg.lower():
+                error_msg = f"Market order couldn't fill (no liquidity at {sell_price})"
             logger.error(f"CLOB sell error: {error_msg}")
             return None, False, error_msg
 
@@ -214,7 +227,9 @@ class TradingExecutor:
         market = await self.get_market_info(market_id)
 
         # Determine unwanted side
-        unwanted_token = market.no_token_id if position == "YES" else market.yes_token_id
+        unwanted_token = (
+            market.no_token_id if position == "YES" else market.yes_token_id
+        )
         unwanted_price = market.no_price if position == "YES" else market.yes_price
 
         # Split position

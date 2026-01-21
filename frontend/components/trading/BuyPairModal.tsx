@@ -23,17 +23,36 @@ interface TradeResult {
 }
 
 export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
-  const { status } = useWallet()
+  const { status, loading: walletLoading, unlock } = useWallet()
   const [amount, setAmount] = useState('10')
   const [step, setStep] = useState<Step>('input')
   const [result, setResult] = useState<TradeResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [executionStep, setExecutionStep] = useState('')
+  const [password, setPassword] = useState('')
+  const [unlocking, setUnlocking] = useState(false)
+  const [unlockError, setUnlockError] = useState<string | null>(null)
+
+  const handleUnlock = async () => {
+    if (!password) return
+    setUnlocking(true)
+    setUnlockError(null)
+    try {
+      await unlock(password)
+      setPassword('')
+    } catch (e) {
+      setUnlockError(e instanceof Error ? e.message : 'Failed to unlock')
+    } finally {
+      setUnlocking(false)
+    }
+  }
 
   const apiBase = getApiBaseUrl()
+  const MIN_AMOUNT = 5 // Polymarket CLOB minimum order size
   const amountNum = parseFloat(amount) || 0
   const totalCost = amountNum * 2
   const hasSufficientBalance = (status?.balances?.usdc_e || 0) >= totalCost
+  const meetsMinimum = amountNum >= MIN_AMOUNT
 
   const handleBuy = async () => {
     if (!status?.unlocked) {
@@ -120,18 +139,23 @@ export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
 
               {/* Amount input */}
               <div>
-                <label className="text-sm text-text-muted block mb-1">Amount per position</label>
+                <label className="text-sm text-text-muted block mb-1">
+                  Amount per position <span className="text-text-muted/60">(min $5)</span>
+                </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">$</span>
                   <input
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    min="1"
+                    min="5"
                     step="1"
-                    className="w-full pl-7 pr-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary text-sm font-mono focus:outline-none focus:border-cyan"
+                    className={`w-full pl-7 pr-3 py-2 bg-surface-elevated border rounded-lg text-text-primary text-sm font-mono focus:outline-none ${!meetsMinimum && amountNum > 0 ? 'border-rose focus:border-rose' : 'border-border focus:border-cyan'}`}
                   />
                 </div>
+                {!meetsMinimum && amountNum > 0 && (
+                  <p className="text-rose text-xs mt-1">Minimum $5 required (Polymarket CLOB limit)</p>
+                )}
               </div>
 
               {/* Summary */}
@@ -142,15 +166,46 @@ export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-muted">Your balance</span>
-                  <span className={`font-mono ${hasSufficientBalance ? 'text-emerald' : 'text-rose'}`}>
-                    ${(status?.balances?.usdc_e || 0).toFixed(2)} USDC.e
-                  </span>
+                  {walletLoading ? (
+                    <span className="text-text-muted font-mono">Loading...</span>
+                  ) : (
+                    <span className={`font-mono ${hasSufficientBalance ? 'text-emerald' : 'text-rose'}`}>
+                      ${(status?.balances?.usdc_e || 0).toFixed(2)} USDC.e
+                    </span>
+                  )}
                 </div>
               </div>
 
               {error && (
                 <div className="p-3 bg-rose/10 border border-rose/25 rounded-lg text-rose text-sm">
                   {error}
+                </div>
+              )}
+
+              {/* Unlock wallet inline */}
+              {!walletLoading && !status?.unlocked && (
+                <div className="bg-amber-500/10 border border-amber-500/25 rounded-lg p-3 space-y-2">
+                  <p className="text-amber-500 text-sm font-medium">Wallet is locked</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
+                      placeholder="Enter password"
+                      className="flex-1 px-3 py-2 bg-surface border border-border rounded-lg text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-amber-500"
+                    />
+                    <button
+                      onClick={handleUnlock}
+                      disabled={unlocking || !password}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-void text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {unlocking ? 'Unlocking...' : 'Unlock'}
+                    </button>
+                  </div>
+                  {unlockError && (
+                    <p className="text-rose text-xs">{unlockError}</p>
+                  )}
                 </div>
               )}
 
@@ -164,10 +219,10 @@ export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
                 </button>
                 <button
                   onClick={handleBuy}
-                  disabled={!status?.unlocked || !hasSufficientBalance || amountNum <= 0}
+                  disabled={walletLoading || !status?.unlocked || !hasSufficientBalance || !meetsMinimum}
                   className="flex-1 py-2.5 px-4 bg-cyan hover:bg-cyan/90 rounded-lg text-void text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {!status?.unlocked ? 'Unlock Wallet First' : 'Confirm Purchase'}
+                  {walletLoading ? 'Loading Wallet...' : !status?.unlocked ? 'Unlock Wallet First' : 'Confirm Purchase'}
                 </button>
               </div>
             </>

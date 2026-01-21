@@ -127,7 +127,9 @@ class WalletManager:
 
         # Check CTF approvals
         for contract in ["CTF_EXCHANGE", "NEG_RISK_CTF_EXCHANGE", "NEG_RISK_ADAPTER"]:
-            approved = ctf.functions.isApprovedForAll(checksum, CONTRACTS[contract]).call()
+            approved = ctf.functions.isApprovedForAll(
+                checksum, CONTRACTS[contract]
+            ).call()
             if not approved:
                 return False
 
@@ -188,13 +190,15 @@ class WalletManager:
 
         for contract, method, spender, value in approvals:
             fn = getattr(contract.functions, method)
-            tx = fn(Web3.to_checksum_address(spender), value).build_transaction({
-                "from": address,
-                "nonce": w3.eth.get_transaction_count(address),
-                "gas": 100000,
-                "gasPrice": w3.eth.gas_price,
-                "chainId": 137,
-            })
+            tx = fn(Web3.to_checksum_address(spender), value).build_transaction(
+                {
+                    "from": address,
+                    "nonce": w3.eth.get_transaction_count(address),
+                    "gas": 100000,
+                    "gasPrice": w3.eth.gas_price,
+                    "chainId": 137,
+                }
+            )
 
             signed = account.sign_transaction(tx)
             tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
