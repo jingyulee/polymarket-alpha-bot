@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useState, memo } from 'react'
 
 interface PriceFlashProps {
   /** Whether the flash effect is active */
@@ -62,8 +62,9 @@ export function PriceFlash({
 /**
  * Arrow indicator for price changes.
  * Shows up/down arrow with color coding.
+ * Memoized to prevent unnecessary re-renders in virtualized lists.
  */
-export function PriceChangeIndicator({
+export const PriceChangeIndicator = memo(function PriceChangeIndicator({
   direction,
   className = '',
 }: {
@@ -85,5 +86,5 @@ export function PriceChangeIndicator({
       {direction === 'up' ? '↑' : '↓'}
     </span>
   )
-}
+})
 

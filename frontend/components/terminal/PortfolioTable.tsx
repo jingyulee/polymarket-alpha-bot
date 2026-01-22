@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef, useCallback, useEffect, useState } from 'react'
+import { useRef, useCallback, useEffect, useState, memo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Portfolio } from '@/hooks/usePortfolioPrices'
 import { PriceChangeIndicator } from '@/components/PriceFlash'
 import { FavoriteButton } from '@/components/terminal/QuickActions'
@@ -58,10 +59,10 @@ const COLUMN_HINTS: Record<string, ColumnHint> = {
 }
 
 // =============================================================================
-// COLUMN HINT COMPONENT
+// COLUMN HINT COMPONENT - Memoized to prevent re-renders
 // =============================================================================
 
-function InfoIcon() {
+const InfoIcon = memo(function InfoIcon() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <circle cx="8" cy="8" r="6.5" />
@@ -69,9 +70,9 @@ function InfoIcon() {
       <circle cx="8" cy="5" r="0.5" fill="currentColor" stroke="none" />
     </svg>
   )
-}
+})
 
-function ColumnHintIcon({
+const ColumnHintIcon = memo(function ColumnHintIcon({
   hint,
   position = 'center'
 }: {
@@ -96,7 +97,7 @@ function ColumnHintIcon({
       </span>
     </span>
   )
-}
+})
 
 interface PortfolioTableProps {
   portfolios: Portfolio[]
@@ -106,7 +107,7 @@ interface PortfolioTableProps {
   priceChanges: Map<string, PriceChange>
   pinnedCount: number
   connected: boolean
-  isFavorite: (pairId: string) => boolean
+  favoriteSet: Set<string>
   onSelect: (index: number, portfolio: Portfolio) => void
   onToggleFavorite: (pairId: string, coverage: number) => void
 }
@@ -114,6 +115,12 @@ interface PortfolioTableProps {
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
+
+// Row heights for virtualization
+const ROW_HEIGHTS: Record<Density, number> = {
+  compact: 52,
+  normal: 64,
+}
 
 export function PortfolioTable({
   portfolios,
@@ -123,14 +130,21 @@ export function PortfolioTable({
   priceChanges,
   pinnedCount,
   connected,
-  isFavorite,
+  favoriteSet,
   onSelect,
   onToggleFavorite,
 }: PortfolioTableProps) {
   const styles = densityStyles[density]
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
   const [scrollState, setScrollState] = useState({ atTop: true, atBottom: true })
+
+  // Virtual scrolling for performance with large lists
+  const rowVirtualizer = useVirtualizer({
+    count: portfolios.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => ROW_HEIGHTS[density],
+    overscan: 10, // Render 10 extra rows above/below viewport for smooth scrolling
+  })
 
   // Track scroll position for shadow indicators
   const handleScroll = useCallback(() => {
@@ -154,15 +168,12 @@ export function PortfolioTable({
     handleScroll()
   }, [portfolios.length, handleScroll])
 
-  // Auto-scroll to selected row
+  // Auto-scroll to selected row using virtualizer
   useEffect(() => {
-    if (selectedIndex >= 0) {
-      const row = rowRefs.current.get(selectedIndex)
-      if (row) {
-        row.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-      }
+    if (selectedIndex >= 0 && selectedIndex < portfolios.length) {
+      rowVirtualizer.scrollToIndex(selectedIndex, { align: 'auto', behavior: 'smooth' })
     }
-  }, [selectedIndex])
+  }, [selectedIndex, portfolios.length, rowVirtualizer])
 
   return (
     <div className="flex flex-col flex-1 min-h-0 rounded-lg border border-border overflow-hidden bg-surface">
@@ -189,158 +200,165 @@ export function PortfolioTable({
           className="h-full overflow-y-auto overflow-x-auto"
           onScroll={handleScroll}
         >
-          <table className="w-full table-fixed">
-            <thead className="bg-surface-elevated border-b border-border sticky top-0 z-10">
-              <tr>
-                <th className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-10`}>
-                  <span className="flex items-center gap-1">
-                    ★
-                    <ColumnHintIcon hint={COLUMN_HINTS.favorite} position="left" />
-                  </span>
-                </th>
-                <th className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[28%]`}>
-                  <span className="flex items-center gap-1">
-                    Target Bet
-                    <ColumnHintIcon hint={COLUMN_HINTS.target} position="left" />
-                  </span>
-                </th>
-                <th className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[28%]`}>
-                  <span className="flex items-center gap-1">
-                    Backup Bet
-                    <ColumnHintIcon hint={COLUMN_HINTS.backup} />
-                  </span>
-                </th>
-                <th className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-20`}>
-                  <span className="flex items-center gap-1">
-                    LLM Conf.
-                    <ColumnHintIcon hint={COLUMN_HINTS.confidence} />
-                  </span>
-                </th>
-                <th className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-16`}>
-                  <span className="flex items-center gap-1">
-                    Cost
-                    <ColumnHintIcon hint={COLUMN_HINTS.cost} />
-                  </span>
-                </th>
-                <th className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-16`}>
-                  <span className="flex items-center gap-1">
-                    Return
-                    <ColumnHintIcon hint={COLUMN_HINTS.return} position="right" />
-                  </span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {portfolios.map((p, index) => {
-                const isProfitable = p.expected_profit > 0.001
-                const viabilityPercent = p.viability_score !== undefined ? (p.viability_score * 100).toFixed(0) : null
-                const isChanged = changedIds.has(p.pair_id)
-                const priceChange = priceChanges.get(p.pair_id)
-                const isSelected = index === selectedIndex
-                const isPinned = isFavorite(p.pair_id)
+          {/* Header row - sticky */}
+          <div className="bg-surface-elevated border-b border-border sticky top-0 z-10 flex min-w-fit">
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-10 shrink-0`}>
+              <span className="flex items-center gap-1">
+                ★
+                <ColumnHintIcon hint={COLUMN_HINTS.favorite} position="left" />
+              </span>
+            </div>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted flex-[2] min-w-[200px]`}>
+              <span className="flex items-center gap-1">
+                Target Bet
+                <ColumnHintIcon hint={COLUMN_HINTS.target} position="left" />
+              </span>
+            </div>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted flex-[2] min-w-[200px]`}>
+              <span className="flex items-center gap-1">
+                Backup Bet
+                <ColumnHintIcon hint={COLUMN_HINTS.backup} />
+              </span>
+            </div>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-20 shrink-0`}>
+              <span className="flex items-center gap-1">
+                LLM Conf.
+                <ColumnHintIcon hint={COLUMN_HINTS.confidence} />
+              </span>
+            </div>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-16 shrink-0`}>
+              <span className="flex items-center gap-1">
+                Cost
+                <ColumnHintIcon hint={COLUMN_HINTS.cost} />
+              </span>
+            </div>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-16 shrink-0`}>
+              <span className="flex items-center gap-1">
+                Return
+                <ColumnHintIcon hint={COLUMN_HINTS.return} position="right" />
+              </span>
+            </div>
+          </div>
 
-                const flashClass = isChanged
-                  ? priceChange?.direction === 'up'
-                    ? 'animate-flash-up'
-                    : priceChange?.direction === 'down'
-                      ? 'animate-flash-down'
-                      : 'animate-flash'
-                  : ''
+          {/* Virtualized body */}
+          <div
+            className="relative min-w-fit"
+            style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const index = virtualRow.index
+              const p = portfolios[index]
+              const isProfitable = p.expected_profit > 0.001
+              const viabilityPercent = p.viability_score !== undefined ? (p.viability_score * 100).toFixed(0) : null
+              const isChanged = changedIds.has(p.pair_id)
+              const priceChange = priceChanges.get(p.pair_id)
+              const isSelected = index === selectedIndex
+              const isPinned = favoriteSet.has(p.pair_id)
 
-                return (
-                  <tr
-                    key={p.pair_id}
-                    ref={(el) => {
-                      if (el) rowRefs.current.set(index, el)
-                    }}
-                    className={`
-                      group transition-colors cursor-pointer ${flashClass}
-                      ${isSelected
-                        ? 'bg-cyan/10 ring-1 ring-inset ring-cyan/50'
-                        : isPinned
-                          ? 'bg-amber/5 hover:bg-amber/10'
-                          : 'hover:bg-surface-hover'
-                      }
-                    `}
-                    onClick={() => onSelect(index, p)}
-                  >
-                    <td className={styles.cellPadding}>
-                      <FavoriteButton
-                        isFavorite={isPinned}
-                        onToggle={() => onToggleFavorite(p.pair_id, p.coverage)}
-                      />
-                    </td>
-                    <td className={styles.cellPadding}>
-                      <div className="space-y-0.5">
-                        <p
-                          className={`${styles.fontSize} text-text-primary truncate`}
-                          title={p.target_question}
-                        >
-                          {p.target_question}
+              const flashClass = isChanged
+                ? priceChange?.direction === 'up'
+                  ? 'animate-flash-up'
+                  : priceChange?.direction === 'down'
+                    ? 'animate-flash-down'
+                    : 'animate-flash'
+                : ''
+
+              return (
+                <div
+                  key={p.pair_id}
+                  data-index={index}
+                  ref={rowVirtualizer.measureElement}
+                  className={`
+                    flex items-center cursor-pointer ${flashClass} absolute left-0 right-0 border-b border-border
+                    ${isSelected
+                      ? 'bg-cyan/10 ring-1 ring-inset ring-cyan/50'
+                      : isPinned
+                        ? 'bg-amber/5 hover:bg-amber/10'
+                        : 'hover:bg-surface-hover'
+                    }
+                  `}
+                  style={{
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                  onClick={() => onSelect(index, p)}
+                >
+                  <div className={`${styles.cellPadding} w-10 shrink-0 flex items-center`}>
+                    <FavoriteButton
+                      isFavorite={isPinned}
+                      onToggle={() => onToggleFavorite(p.pair_id, p.coverage)}
+                    />
+                  </div>
+                  <div className={`${styles.cellPadding} flex-[2] min-w-[200px]`}>
+                    <div className="space-y-0.5">
+                      <p
+                        className={`${styles.fontSize} text-text-primary truncate`}
+                        title={p.target_question}
+                      >
+                        {p.target_question}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-[10px] text-text-muted">
+                          {p.target_position} @ ${p.target_price.toFixed(2)}
                         </p>
-                        <div className="flex items-center gap-1">
-                          <p className="text-[10px] text-text-muted">
-                            {p.target_position} @ ${p.target_price.toFixed(2)}
-                          </p>
-                          {isChanged && priceChange && (
-                            <PriceChangeIndicator direction={priceChange.direction === 'changed' ? null : priceChange.direction} />
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className={styles.cellPadding}>
-                      <div className="space-y-0.5">
-                        <p
-                          className={`${styles.fontSize} text-text-primary truncate`}
-                          title={p.cover_question}
-                        >
-                          {p.cover_question}
-                        </p>
-                        <div className="flex items-center gap-1">
-                          <p className="text-[10px] text-text-muted">
-                            {p.cover_position} @ ${p.cover_price.toFixed(2)}
-                          </p>
-                          {isChanged && priceChange && (
-                            <PriceChangeIndicator direction={priceChange.direction === 'changed' ? null : priceChange.direction} />
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className={styles.cellPadding}>
-                      <div className="space-y-1">
-                        <span
-                          className={`${styles.fontSize} font-mono ${p.viability_score !== undefined ? (p.viability_score >= 0.8 ? 'text-emerald' : p.viability_score >= 0.6 ? 'text-cyan' : 'text-text-secondary') : 'text-text-muted'}`}
-                        >
-                          {viabilityPercent !== null ? `${viabilityPercent}%` : '—'}
-                        </span>
-                        {p.viability_score !== undefined && (
-                          <div className="w-16 h-1 bg-surface-elevated rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all duration-500 ${p.viability_score >= 0.8 ? 'bg-emerald' : p.viability_score >= 0.6 ? 'bg-cyan' : 'bg-amber'}`}
-                              style={{ width: `${Math.min(100, p.viability_score * 100)}%` }}
-                            />
-                          </div>
+                        {isChanged && priceChange && (
+                          <PriceChangeIndicator direction={priceChange.direction === 'changed' ? null : priceChange.direction} />
                         )}
                       </div>
-                    </td>
-                    <td className={styles.cellPadding}>
-                      <span className={`${styles.fontSize} font-mono text-text-secondary`}>
-                        ${p.total_cost.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className={styles.cellPadding}>
-                      <span
-                        className={`${styles.fontSize} font-mono font-medium ${isProfitable ? 'text-emerald' : 'text-rose'}`}
+                    </div>
+                  </div>
+                  <div className={`${styles.cellPadding} flex-[2] min-w-[200px]`}>
+                    <div className="space-y-0.5">
+                      <p
+                        className={`${styles.fontSize} text-text-primary truncate`}
+                        title={p.cover_question}
                       >
-                        {isProfitable ? '+' : ''}
-                        {(p.expected_profit * 100).toFixed(1)}%
+                        {p.cover_question}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-[10px] text-text-muted">
+                          {p.cover_position} @ ${p.cover_price.toFixed(2)}
+                        </p>
+                        {isChanged && priceChange && (
+                          <PriceChangeIndicator direction={priceChange.direction === 'changed' ? null : priceChange.direction} />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`${styles.cellPadding} w-20 shrink-0`}>
+                    <div className="space-y-1">
+                      <span
+                        className={`${styles.fontSize} font-mono ${p.viability_score !== undefined ? (p.viability_score >= 0.8 ? 'text-emerald' : p.viability_score >= 0.6 ? 'text-cyan' : 'text-text-secondary') : 'text-text-muted'}`}
+                      >
+                        {viabilityPercent !== null ? `${viabilityPercent}%` : '—'}
                       </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      {p.viability_score !== undefined && (
+                        <div className="w-16 h-1 bg-surface-elevated rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 ${p.viability_score >= 0.8 ? 'bg-emerald' : p.viability_score >= 0.6 ? 'bg-cyan' : 'bg-amber'}`}
+                            style={{ width: `${Math.min(100, p.viability_score * 100)}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`${styles.cellPadding} w-16 shrink-0`}>
+                    <span className={`${styles.fontSize} font-mono text-text-secondary`}>
+                      ${p.total_cost.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className={`${styles.cellPadding} w-16 shrink-0`}>
+                    <span
+                      className={`${styles.fontSize} font-mono font-medium ${isProfitable ? 'text-emerald' : 'text-rose'}`}
+                    >
+                      {isProfitable ? '+' : ''}
+                      {(p.expected_profit * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, useDeferredValue } from 'react'
 import { usePortfolioPrices, Portfolio } from '@/hooks/usePortfolioPrices'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -38,6 +38,8 @@ export default function TerminalPage() {
   const [profitableOnly, setProfitableOnly] = useState(false)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [filter, setFilter] = useState('')
+  // Defer filter value to avoid blocking UI during expensive sort/filter operations
+  const deferredFilter = useDeferredValue(filter)
 
   // Keyboard navigation state
   const [selectedIndex, setSelectedIndex] = useState<number>(-1)
@@ -47,7 +49,7 @@ export default function TerminalPage() {
   const { density, toggle: toggleDensity } = useDensity()
 
   // Favorites
-  const { isFavorite, toggleFavorite, favoriteIds, count: favoriteCount, clearAll: clearFavorites } = useFavorites()
+  const { favoriteSet, toggleFavorite, count: favoriteCount, clearAll: clearFavorites } = useFavorites()
 
   // Pipeline status
   const [lastRunTime, setLastRunTime] = useState<string | null>(null)
@@ -119,10 +121,11 @@ export default function TerminalPage() {
   }, [profitableOnly, updateFilters])
 
   // Filter and sort portfolios (favorites pinned to top)
+  // Uses deferredFilter to avoid blocking UI during typing
   const sortedPortfolios = useMemo(() => {
     const filtered = [...portfolios].filter((p) => {
-      if (!filter) return true
-      const search = filter.toLowerCase()
+      if (!deferredFilter) return true
+      const search = deferredFilter.toLowerCase()
       return (
         p.target_question.toLowerCase().includes(search) ||
         p.cover_question.toLowerCase().includes(search) ||
@@ -153,16 +156,16 @@ export default function TerminalPage() {
 
     // Separate favorites and non-favorites, sort each, then combine
     // Favorites always appear at the top, maintaining sort order within each group
-    const favorites = filtered.filter((p) => isFavorite(p.pair_id)).sort(sortFn)
-    const nonFavorites = filtered.filter((p) => !isFavorite(p.pair_id)).sort(sortFn)
+    const favorites = filtered.filter((p) => favoriteSet.has(p.pair_id)).sort(sortFn)
+    const nonFavorites = filtered.filter((p) => !favoriteSet.has(p.pair_id)).sort(sortFn)
 
     return [...favorites, ...nonFavorites]
-  }, [portfolios, filter, isFavorite])
+  }, [portfolios, deferredFilter, favoriteSet])
 
   // Count of pinned favorites in current view
   const pinnedCount = useMemo(() => {
-    return sortedPortfolios.filter((p) => isFavorite(p.pair_id)).length
-  }, [sortedPortfolios, isFavorite])
+    return sortedPortfolios.filter((p) => favoriteSet.has(p.pair_id)).length
+  }, [sortedPortfolios, favoriteSet])
 
   // Reset selection when list changes
   useEffect(() => {
@@ -333,14 +336,21 @@ export default function TerminalPage() {
           {/* Density toggle */}
           <DensityToggle density={density} onToggle={toggleDensity} />
 
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search... (press /)"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-3 py-1.5 w-48 bg-surface-elevated border border-border rounded text-sm text-text-primary placeholder:text-text-muted focus:border-cyan/50 focus:outline-none transition-colors"
-          />
+          <div className="relative">
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search... (press /)"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className={`px-3 py-1.5 w-48 bg-surface-elevated border border-border rounded text-sm text-text-primary placeholder:text-text-muted focus:border-cyan/50 focus:outline-none transition-colors ${filter !== deferredFilter ? 'opacity-70' : ''}`}
+            />
+            {filter !== deferredFilter && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <div className="w-3 h-3 border border-cyan border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Portfolio Table */}
@@ -364,7 +374,7 @@ export default function TerminalPage() {
             priceChanges={priceChanges}
             pinnedCount={pinnedCount}
             connected={connected}
-            isFavorite={isFavorite}
+            favoriteSet={favoriteSet}
             onSelect={(index, portfolio) => {
               setSelectedIndex(index)
               setSelectedPortfolio(portfolio)

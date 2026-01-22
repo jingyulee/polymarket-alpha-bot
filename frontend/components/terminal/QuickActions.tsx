@@ -1,7 +1,10 @@
 'use client'
 
+import { memo, useCallback } from 'react'
+
 // =============================================================================
 // FAVORITE STAR BUTTON (standalone for table cells)
+// Memoized to prevent unnecessary re-renders in virtualized lists
 // =============================================================================
 
 interface FavoriteButtonProps {
@@ -10,11 +13,11 @@ interface FavoriteButtonProps {
   size?: 'sm' | 'md'
 }
 
-export function FavoriteButton({ isFavorite, onToggle, size = 'sm' }: FavoriteButtonProps) {
-  const handleClick = (e: React.MouseEvent) => {
+export const FavoriteButton = memo(function FavoriteButton({ isFavorite, onToggle, size = 'sm' }: FavoriteButtonProps) {
+  const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     onToggle()
-  }
+  }, [onToggle])
 
   const sizeClass = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'
 
@@ -43,4 +46,4 @@ export function FavoriteButton({ isFavorite, onToggle, size = 'sm' }: FavoriteBu
       </svg>
     </button>
   )
-}
+})

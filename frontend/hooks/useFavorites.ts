@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 
 const STORAGE_KEY = 'alphapoly:favorites'
 
@@ -76,12 +76,13 @@ export function useFavorites() {
     [favorites, addFavorite, removeFavorite]
   )
 
-  // Check if favorited
+  // Stable Set for O(1) lookups without causing re-renders
+  const favoriteSet = useMemo(() => new Set(favorites.keys()), [favorites])
+
+  // Check if favorited - uses the memoized Set
   const isFavorite = useCallback(
-    (pairId: string) => {
-      return favorites.has(pairId)
-    },
-    [favorites]
+    (pairId: string) => favoriteSet.has(pairId),
+    [favoriteSet]
   )
 
   // Clear all favorites
@@ -90,13 +91,18 @@ export function useFavorites() {
     localStorage.removeItem(STORAGE_KEY)
   }, [])
 
-  // Get sorted favorite IDs (most recently added first)
-  const favoriteIds = Array.from(favorites.values())
-    .sort((a, b) => b.added_at - a.added_at)
-    .map((f) => f.pair_id)
+  // Get sorted favorite IDs (most recently added first) - memoized
+  const favoriteIds = useMemo(
+    () =>
+      Array.from(favorites.values())
+        .sort((a, b) => b.added_at - a.added_at)
+        .map((f) => f.pair_id),
+    [favorites]
+  )
 
   return {
     favoriteIds,
+    favoriteSet,
     toggleFavorite,
     isFavorite,
     clearAll,

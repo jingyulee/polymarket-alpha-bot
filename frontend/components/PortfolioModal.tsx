@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { getCoverageBg } from '@/config/tier-config'
 import { useWallet } from '@/hooks/useWallet'
 import { getApiBaseUrl } from '@/config/api-config'
@@ -22,17 +22,17 @@ interface PortfolioModalProps {
   onClose: () => void
 }
 
-// External link icon component
-function ExternalLinkIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+// External link icon component - memoized to prevent re-renders
+const ExternalLinkIcon = memo(function ExternalLinkIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
     </svg>
   )
-}
+})
 
-// Info icon for hints
-function InfoIcon() {
+// Info icon for hints - memoized
+const InfoIcon = memo(function InfoIcon() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <circle cx="8" cy="8" r="6.5" />
@@ -40,10 +40,10 @@ function InfoIcon() {
       <circle cx="8" cy="5" r="0.5" fill="currentColor" stroke="none" />
     </svg>
   )
-}
+})
 
-// Hint component matching PortfolioTable style
-function HintIcon({ title, beginner, pro }: { title: string; beginner: string; pro: string }) {
+// Hint component matching PortfolioTable style - memoized
+const HintIcon = memo(function HintIcon({ title, beginner, pro }: { title: string; beginner: string; pro: string }) {
   return (
     <span className="column-hint">
       <span className="column-hint-icon">
@@ -56,7 +56,7 @@ function HintIcon({ title, beginner, pro }: { title: string; beginner: string; p
       </span>
     </span>
   )
-}
+})
 
 export function PortfolioModal({ portfolio: p, onClose }: PortfolioModalProps) {
   const isProfitable = p.expected_profit > 0.001

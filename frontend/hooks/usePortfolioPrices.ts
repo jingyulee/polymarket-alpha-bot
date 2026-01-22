@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, startTransition } from 'react'
 import type { Portfolio } from '@/types/portfolio'
 
 // Re-export for consumers that import from this file
@@ -132,28 +132,31 @@ export function usePortfolioPrices(
     }
   }, [])
 
-  // Clear old changes
+  // Clear old changes - use startTransition for non-urgent visual updates
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
       const activeIds = new Set<string>()
 
-      setPriceChanges(prev => {
-        const filtered = new Map<string, PriceChange>()
-        prev.forEach((change, id) => {
-          if (now - change.timestamp < CHANGE_FLASH_DURATION) {
-            filtered.set(id, change)
-            activeIds.add(id)
-          }
+      // Wrap in startTransition since flash effects are non-urgent
+      startTransition(() => {
+        setPriceChanges(prev => {
+          const filtered = new Map<string, PriceChange>()
+          prev.forEach((change, id) => {
+            if (now - change.timestamp < CHANGE_FLASH_DURATION) {
+              filtered.set(id, change)
+              activeIds.add(id)
+            }
+          })
+          return filtered.size !== prev.size ? filtered : prev
         })
-        return filtered.size !== prev.size ? filtered : prev
-      })
 
-      setChangedIds(prev => {
-        if (prev.size === 0) return prev
-        // Only keep IDs that still have active price changes
-        const stillActive = new Set([...prev].filter(id => activeIds.has(id)))
-        return stillActive.size !== prev.size ? stillActive : prev
+        setChangedIds(prev => {
+          if (prev.size === 0) return prev
+          // Only keep IDs that still have active price changes
+          const stillActive = new Set([...prev].filter(id => activeIds.has(id)))
+          return stillActive.size !== prev.size ? stillActive : prev
+        })
       })
     }, 500)
 
@@ -268,9 +271,14 @@ export function usePortfolioPrices(
                   a.tier !== b.tier ? a.tier - b.tier : b.coverage - a.coverage
                 )
 
+                // Portfolio data update is urgent
                 setPortfolios(merged)
-                setChangedIds(prev => new Set([...prev, ...newChangedIds]))
-                setPriceChanges(prev => new Map([...prev, ...newPriceChanges]))
+
+                // Flash effects are non-urgent visual updates
+                startTransition(() => {
+                  setChangedIds(prev => new Set([...prev, ...newChangedIds]))
+                  setPriceChanges(prev => new Map([...prev, ...newPriceChanges]))
+                })
               }
               break
 
