@@ -55,9 +55,10 @@ app.include_router(wallet.router, prefix="/wallet", tags=["wallet"])
 app.include_router(trading.router, prefix="/trading", tags=["trading"])
 
 # Positions tracking
-from server.routers import positions
+from server.routers import positions, position_actions
 
 app.include_router(positions.router, prefix="/positions", tags=["positions"])
+app.include_router(position_actions.router, prefix="/positions", tags=["positions"])
 
 # Portfolio real-time updates
 from server.routers import portfolio_prices

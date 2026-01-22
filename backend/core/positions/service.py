@@ -195,7 +195,7 @@ class PositionService:
             logger.error(f"Failed to query token balance for {token_id}: {e}")
             return 0.0
 
-    def _get_market_token_ids(self, market_id: str) -> tuple[str, str]:
+    def get_market_token_ids(self, market_id: str) -> tuple[str, str]:
         """Get YES and NO token IDs for a market. Returns (yes_token_id, no_token_id)."""
         if market_id in self._token_cache:
             return self._token_cache[market_id]
@@ -219,7 +219,7 @@ class PositionService:
 
     def _get_unwanted_token_id(self, market_id: str, wanted_position: str) -> str:
         """Get the unwanted token ID (opposite of what we wanted)."""
-        yes_token, no_token = self._get_market_token_ids(market_id)
+        yes_token, no_token = self.get_market_token_ids(market_id)
         if wanted_position == "YES":
             return no_token
         return yes_token

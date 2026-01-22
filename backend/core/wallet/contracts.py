@@ -81,4 +81,16 @@ CTF_ABI = [
         "outputs": [{"name": "", "type": "uint256"}],
         "type": "function",
     },
+    {
+        "inputs": [
+            {"name": "collateralToken", "type": "address"},
+            {"name": "parentCollectionId", "type": "bytes32"},
+            {"name": "conditionId", "type": "bytes32"},
+            {"name": "partition", "type": "uint256[]"},
+            {"name": "amount", "type": "uint256"},
+        ],
+        "name": "mergePositions",
+        "outputs": [],
+        "type": "function",
+    },
 ]

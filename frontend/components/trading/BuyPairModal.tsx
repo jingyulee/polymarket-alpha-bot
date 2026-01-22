@@ -66,9 +66,13 @@ export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
 
     setStep('executing')
     setError(null)
-    setExecutionStep('Splitting target position...')
+    setExecutionStep('Splitting target...')
 
     try {
+      // Simulate progress (actual API is single call)
+      setTimeout(() => setExecutionStep('Selling target unwanted...'), 2000)
+      setTimeout(() => setExecutionStep('Processing cover market...'), 5000)
+
       const res = await fetch(`${apiBase}/trading/buy-pair`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,8 +80,10 @@ export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
           pair_id: p.pair_id,
           target_market_id: p.target_market_id,
           target_position: p.target_position,
+          target_group_slug: p.target_group_slug || '',
           cover_market_id: p.cover_market_id,
           cover_position: p.cover_position,
+          cover_group_slug: p.cover_group_slug || '',
           amount_per_position: amountNum,
           skip_clob_sell: false,
         }),
@@ -254,10 +260,55 @@ export function BuyPairModal({ portfolio: p, onClose }: BuyPairModalProps) {
           )}
 
           {step === 'executing' && (
-            <div className="py-8 text-center">
-              <div className="animate-spin w-8 h-8 border-2 border-cyan border-t-transparent rounded-full mx-auto mb-4" />
-              <p className="text-text-primary">{executionStep}</p>
-              <p className="text-text-muted text-sm mt-2">This may take a minute...</p>
+            <div className="py-4 space-y-4">
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-text-primary">Buying Position</h3>
+              </div>
+
+              {/* Progress steps */}
+              <div className="space-y-3">
+                {/* Target Market */}
+                <div className="flex items-start gap-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                    executionStep.includes('cover') ? 'bg-emerald text-void' : 'bg-cyan text-void'
+                  }`}>
+                    {executionStep.includes('cover') ? '✓' : '◐'}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-text-primary">Target Market</p>
+                    <p className="text-xs text-text-muted">
+                      {executionStep.includes('cover')
+                        ? 'Split + sell complete'
+                        : executionStep.includes('Selling')
+                          ? 'Selling unwanted tokens...'
+                          : 'Splitting USDC → tokens...'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cover Market */}
+                <div className="flex items-start gap-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                    executionStep.includes('cover')
+                      ? 'bg-cyan text-void'
+                      : 'bg-surface-elevated text-text-muted border border-border'
+                  }`}>
+                    {executionStep.includes('cover') ? '◐' : '○'}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-sm ${executionStep.includes('cover') ? 'text-text-primary' : 'text-text-muted'}`}>
+                      Cover Market
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      {executionStep.includes('cover') ? 'Processing...' : 'Pending...'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-center text-xs text-text-muted mt-4">
+                This may take up to 30 seconds...
+              </p>
             </div>
           )}
 

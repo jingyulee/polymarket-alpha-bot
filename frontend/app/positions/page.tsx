@@ -3,55 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getApiBaseUrl } from '@/config/api-config'
 import { useWallet } from '@/hooks/useWallet'
-import { PositionRow } from '@/components/positions/PositionRow'
-
-// =============================================================================
-// INFO HINT COMPONENT
-// =============================================================================
-
-function InfoIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="8" cy="8" r="6.5" />
-      <path d="M8 7v4" strokeLinecap="round" />
-      <circle cx="8" cy="5" r="0.5" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
-
-function PurchaseFlowHint() {
-  return (
-    <span className="purchase-flow-hint">
-      <span className="purchase-flow-hint-icon">
-        <InfoIcon />
-      </span>
-      <span className="purchase-flow-hint-tooltip">
-        <span className="purchase-flow-hint-title">How buying works</span>
-        <span className="purchase-flow-hint-content">
-          <span className="purchase-flow-hint-step">
-            <span className="purchase-flow-hint-num">1</span>
-            <span><strong>Initial spend</strong> — We use your USDC to buy YES+NO tokens on both markets</span>
-          </span>
-          <span className="purchase-flow-hint-step">
-            <span className="purchase-flow-hint-num">2</span>
-            <span><strong>Sell unwanted</strong> — We place sell orders for tokens you don&apos;t need</span>
-          </span>
-          <span className="purchase-flow-hint-step">
-            <span className="purchase-flow-hint-num">3</span>
-            <span><strong>Entry cost</strong> — What you actually paid after recovering USDC from sales</span>
-          </span>
-        </span>
-        <span className="purchase-flow-hint-labels">
-          <span className="purchase-flow-hint-label-title">What the labels mean:</span>
-          <span><strong className="text-emerald">RECOVERED</strong> = Unwanted tokens sold, USDC returned to you</span>
-          <span><strong className="text-amber">SELLING...</strong> = Sell order placed, waiting for a buyer</span>
-          <span><strong className="text-emerald">ACTIVE</strong> = You own tokens on both sides</span>
-          <span><strong className="text-amber">PENDING</strong> = Waiting for sell orders to complete</span>
-        </span>
-      </span>
-    </span>
-  )
-}
+import { PositionsTable } from '@/components/positions/PositionsTable'
 
 // =============================================================================
 // TYPES
@@ -86,19 +38,15 @@ export interface Position {
 
   notes: string | null
 
-  // Live data - wanted tokens
   target_balance: number
   cover_balance: number
   target_current_price: number
   cover_current_price: number
-
-  // Live data - unwanted tokens (for pending detection)
   target_unwanted_balance: number
   cover_unwanted_balance: number
 
-  // Derived
   state: 'active' | 'pending' | 'partial' | 'complete'
-  entry_net_cost: number  // Actual cost after selling unwanted tokens
+  entry_net_cost: number
   current_value: number
   pnl: number
   pnl_pct: number
@@ -129,9 +77,7 @@ export default function PositionsPage() {
     try {
       setError(null)
       const res = await fetch(`${getApiBaseUrl()}/positions`)
-      if (!res.ok) {
-        throw new Error('Failed to fetch positions')
-      }
+      if (!res.ok) throw new Error('Failed to fetch positions')
       const data: PositionsResponse = await res.json()
       setPositions(data.positions || [])
       setStats({
@@ -141,7 +87,6 @@ export default function PositionsPage() {
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to fetch positions')
-      console.error('Failed to fetch positions:', e)
     } finally {
       setLoading(false)
     }
@@ -149,12 +94,11 @@ export default function PositionsPage() {
 
   useEffect(() => {
     fetchPositions()
-    // Refresh every 30 seconds
     const interval = setInterval(fetchPositions, 30000)
     return () => clearInterval(interval)
   }, [fetchPositions])
 
-  // Filter positions
+  // Filter and sort
   const filtered = positions.filter((p) => {
     if (filter === 'all') return true
     if (filter === 'active') return p.state === 'active' || p.state === 'pending' || p.state === 'partial'
@@ -163,10 +107,15 @@ export default function PositionsPage() {
     return true
   })
 
-  // Sort by entry time descending (newest first)
   const sorted = [...filtered].sort((a, b) =>
     new Date(b.entry_time).getTime() - new Date(a.entry_time).getTime()
   )
+
+  // Count issues
+  const issueCount = positions.filter(p =>
+    (!p.target_clob_filled && !p.target_clob_order_id && p.target_unwanted_balance > 0.01) ||
+    (!p.cover_clob_filled && !p.cover_clob_order_id && p.cover_unwanted_balance > 0.01)
+  ).length
 
   return (
     <div className="flex flex-col h-full gap-4 animate-fade-in">
@@ -176,9 +125,8 @@ export default function PositionsPage() {
           <div className="flex items-center gap-6">
             <div>
               <h1 className="text-lg font-semibold text-text-primary">Positions</h1>
-              <p className="text-[10px] text-text-muted flex items-center gap-1">
-                Track entered pairs and manage holdings
-                <PurchaseFlowHint />
+              <p className="text-[10px] text-text-muted">
+                Manage your holdings
               </p>
             </div>
 
@@ -201,12 +149,24 @@ export default function PositionsPage() {
                 <p className="text-text-muted/70">all time</p>
               </div>
             </div>
+
+            {issueCount > 0 && (
+              <>
+                <div className="w-px h-10 bg-border" />
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-semibold font-mono text-rose">{issueCount}</span>
+                  <div className="text-xs text-rose leading-tight">
+                    <p>need</p>
+                    <p>attention</p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Right side */}
           <div className="flex items-center gap-3">
             {!status?.exists && (
-              <span className="text-xs text-text-muted">No wallet configured</span>
+              <span className="text-xs text-text-muted">No wallet</span>
             )}
             <button
               onClick={fetchPositions}
@@ -235,9 +195,7 @@ export default function PositionsPage() {
             </button>
           ))}
         </div>
-
         <div className="flex-1" />
-
         <span className="text-xs text-text-muted">
           {sorted.length} position{sorted.length !== 1 ? 's' : ''}
         </span>
@@ -254,42 +212,24 @@ export default function PositionsPage() {
       ) : error ? (
         <div className="flex-1 flex flex-col items-center justify-center border border-border rounded-lg bg-surface">
           <p className="text-sm text-rose mb-2">{error}</p>
-          <button
-            onClick={fetchPositions}
-            className="text-sm text-cyan hover:underline"
-          >
+          <button onClick={fetchPositions} className="text-sm text-cyan hover:underline">
             Try again
           </button>
         </div>
       ) : positions.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center border border-border rounded-lg bg-surface">
           <p className="text-sm text-text-secondary mb-1">No positions yet</p>
-          <p className="text-xs text-text-muted">
-            Buy a pair from Terminal to start tracking
-          </p>
+          <p className="text-xs text-text-muted">Buy a pair from Terminal to start</p>
         </div>
       ) : sorted.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center border border-border rounded-lg bg-surface">
           <p className="text-sm text-text-secondary mb-1">No positions match filter</p>
-          <button
-            onClick={() => setFilter('all')}
-            className="text-xs text-cyan hover:underline"
-          >
-            Show all positions
+          <button onClick={() => setFilter('all')} className="text-xs text-cyan hover:underline">
+            Show all
           </button>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto">
-          <div className="space-y-2">
-            {sorted.map((position) => (
-              <PositionRow
-                key={position.position_id}
-                position={position}
-                onRefresh={fetchPositions}
-              />
-            ))}
-          </div>
-        </div>
+        <PositionsTable positions={sorted} onRefresh={fetchPositions} />
       )}
     </div>
   )
