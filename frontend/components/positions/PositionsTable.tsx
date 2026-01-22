@@ -45,34 +45,34 @@ export function PositionsTable({ positions, onRefresh }: PositionsTableProps) {
 
         <div
           ref={scrollContainerRef}
-          className="h-full overflow-y-auto overflow-x-auto"
+          className="h-full overflow-y-auto"
           onScroll={handleScroll}
         >
           <table className="w-full table-fixed">
             <thead className="bg-surface-elevated border-b border-border sticky top-0 z-10">
               <tr>
-                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-12">
+                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[4%]">
                   Status
                 </th>
-                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[30%]">
+                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[58%]">
                   Position
                 </th>
-                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-24">
+                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[8%]">
                   Tokens
                 </th>
-                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-20">
+                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[6%]">
                   Entry
                 </th>
-                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-20">
+                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[6%]">
                   Value
                 </th>
-                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-24">
+                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[9%]">
                   P&L
                 </th>
-                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-16">
+                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[5%]">
                   Age
                 </th>
-                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-12">
+                <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[4%]">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>

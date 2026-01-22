@@ -116,11 +116,8 @@ interface PortfolioTableProps {
 // MAIN COMPONENT
 // =============================================================================
 
-// Row heights for virtualization
-const ROW_HEIGHTS: Record<Density, number> = {
-  compact: 52,
-  comfortable: 64,
-}
+// Row height for virtualization
+const ROW_HEIGHT = 64
 
 export function PortfolioTable({
   portfolios,
@@ -142,7 +139,7 @@ export function PortfolioTable({
   const rowVirtualizer = useVirtualizer({
     count: portfolios.length,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => ROW_HEIGHTS[density],
+    estimateSize: () => ROW_HEIGHT,
     overscan: 10, // Render 10 extra rows above/below viewport for smooth scrolling
   })
 
@@ -176,9 +173,9 @@ export function PortfolioTable({
   }, [selectedIndex, portfolios.length, rowVirtualizer])
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 rounded-lg border border-border overflow-hidden bg-surface">
+    <div className="flex flex-col flex-1 min-h-0 min-w-0 rounded-lg border border-border overflow-hidden bg-surface">
       {/* Scroll container with shadow indicators */}
-      <div className="relative flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0 min-w-0">
         {/* Top scroll shadow */}
         <div
           className={`absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-surface/90 to-transparent z-20 pointer-events-none transition-opacity duration-150 ${
@@ -197,42 +194,42 @@ export function PortfolioTable({
 
         <div
           ref={scrollContainerRef}
-          className="h-full overflow-y-auto overflow-x-auto"
+          className="h-full overflow-y-auto"
           onScroll={handleScroll}
         >
           {/* Header row - sticky */}
-          <div className="bg-surface-elevated border-b border-border sticky top-0 z-10 flex min-w-fit">
-            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-10 shrink-0`}>
+          <div className="bg-surface-elevated border-b border-border sticky top-0 z-10 flex w-full">
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[5%]`}>
               <span className="flex items-center gap-1">
                 ★
                 <ColumnHintIcon hint={COLUMN_HINTS.favorite} position="left" />
               </span>
             </div>
-            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted flex-[2] min-w-[200px]`}>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[37%]`}>
               <span className="flex items-center gap-1">
                 Target Bet
                 <ColumnHintIcon hint={COLUMN_HINTS.target} position="left" />
               </span>
             </div>
-            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted flex-[2] min-w-[200px]`}>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[37%]`}>
               <span className="flex items-center gap-1">
                 Backup Bet
                 <ColumnHintIcon hint={COLUMN_HINTS.backup} />
               </span>
             </div>
-            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-20 shrink-0`}>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[7%]`}>
               <span className="flex items-center gap-1">
-                LLM Conf.
+                Conf.
                 <ColumnHintIcon hint={COLUMN_HINTS.confidence} />
               </span>
             </div>
-            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-16 shrink-0`}>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[7%]`}>
               <span className="flex items-center gap-1">
                 Cost
                 <ColumnHintIcon hint={COLUMN_HINTS.cost} />
               </span>
             </div>
-            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-16 shrink-0`}>
+            <div className={`${styles.headerPadding} text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-[7%]`}>
               <span className="flex items-center gap-1">
                 Return
                 <ColumnHintIcon hint={COLUMN_HINTS.return} position="right" />
@@ -242,7 +239,7 @@ export function PortfolioTable({
 
           {/* Virtualized body */}
           <div
-            className="relative min-w-fit"
+            className="relative"
             style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
           >
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -269,7 +266,7 @@ export function PortfolioTable({
                   data-index={index}
                   ref={rowVirtualizer.measureElement}
                   className={`
-                    flex items-center cursor-pointer ${flashClass} absolute left-0 right-0 border-b border-border
+                    flex items-center w-full cursor-pointer ${flashClass} absolute inset-x-0 border-b border-border
                     ${isSelected
                       ? 'bg-cyan/10 ring-1 ring-inset ring-cyan/50'
                       : isPinned
@@ -283,13 +280,13 @@ export function PortfolioTable({
                   }}
                   onClick={() => onSelect(index, p)}
                 >
-                  <div className={`${styles.cellPadding} w-10 shrink-0 flex items-center`}>
+                  <div className={`${styles.cellPadding} w-[5%] flex items-center`}>
                     <FavoriteButton
                       isFavorite={isPinned}
                       onToggle={() => onToggleFavorite(p.pair_id, p.coverage)}
                     />
                   </div>
-                  <div className={`${styles.cellPadding} flex-[2] min-w-[200px]`}>
+                  <div className={`${styles.cellPadding} w-[37%] overflow-hidden`}>
                     <div className="space-y-0.5">
                       <p
                         className={`${styles.fontSize} text-text-primary truncate`}
@@ -298,7 +295,7 @@ export function PortfolioTable({
                         {p.target_question}
                       </p>
                       <div className="flex items-center gap-1">
-                        <p className="text-[10px] text-text-muted">
+                        <p className="text-[10px] text-text-muted truncate">
                           {p.target_position} @ ${p.target_price.toFixed(2)}
                         </p>
                         {isChanged && priceChange && (
@@ -307,7 +304,7 @@ export function PortfolioTable({
                       </div>
                     </div>
                   </div>
-                  <div className={`${styles.cellPadding} flex-[2] min-w-[200px]`}>
+                  <div className={`${styles.cellPadding} w-[37%] overflow-hidden`}>
                     <div className="space-y-0.5">
                       <p
                         className={`${styles.fontSize} text-text-primary truncate`}
@@ -316,7 +313,7 @@ export function PortfolioTable({
                         {p.cover_question}
                       </p>
                       <div className="flex items-center gap-1">
-                        <p className="text-[10px] text-text-muted">
+                        <p className="text-[10px] text-text-muted truncate">
                           {p.cover_position} @ ${p.cover_price.toFixed(2)}
                         </p>
                         {isChanged && priceChange && (
@@ -325,7 +322,7 @@ export function PortfolioTable({
                       </div>
                     </div>
                   </div>
-                  <div className={`${styles.cellPadding} w-20 shrink-0`}>
+                  <div className={`${styles.cellPadding} w-[7%]`}>
                     <div className="space-y-1">
                       <span
                         className={`${styles.fontSize} font-mono ${p.viability_score !== undefined ? (p.viability_score >= 0.8 ? 'text-emerald' : p.viability_score >= 0.6 ? 'text-cyan' : 'text-text-secondary') : 'text-text-muted'}`}
@@ -333,7 +330,7 @@ export function PortfolioTable({
                         {viabilityPercent !== null ? `${viabilityPercent}%` : '—'}
                       </span>
                       {p.viability_score !== undefined && (
-                        <div className="w-16 h-1 bg-surface-elevated rounded-full overflow-hidden">
+                        <div className="w-full max-w-12 h-1 bg-surface-elevated rounded-full overflow-hidden">
                           <div
                             className={`h-full transition-all duration-500 ${p.viability_score >= 0.8 ? 'bg-emerald' : p.viability_score >= 0.6 ? 'bg-cyan' : 'bg-amber'}`}
                             style={{ width: `${Math.min(100, p.viability_score * 100)}%` }}
@@ -342,12 +339,12 @@ export function PortfolioTable({
                       )}
                     </div>
                   </div>
-                  <div className={`${styles.cellPadding} w-16 shrink-0`}>
+                  <div className={`${styles.cellPadding} w-[7%]`}>
                     <span className={`${styles.fontSize} font-mono text-text-secondary`}>
                       ${p.total_cost.toFixed(2)}
                     </span>
                   </div>
-                  <div className={`${styles.cellPadding} w-16 shrink-0`}>
+                  <div className={`${styles.cellPadding} w-[7%]`}>
                     <span
                       className={`${styles.fontSize} font-mono font-medium ${isProfitable ? 'text-emerald' : 'text-rose'}`}
                     >

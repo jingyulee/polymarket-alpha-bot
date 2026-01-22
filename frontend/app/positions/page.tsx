@@ -94,7 +94,7 @@ export default function PositionsPage() {
 
   useEffect(() => {
     fetchPositions()
-    const interval = setInterval(fetchPositions, 30000)
+    const interval = setInterval(fetchPositions, 5000)
     return () => clearInterval(interval)
   }, [fetchPositions])
 
@@ -154,17 +154,9 @@ export default function PositionsPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            {!status?.exists && (
-              <span className="text-xs text-text-muted">No wallet</span>
-            )}
-            <button
-              onClick={fetchPositions}
-              className="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary border border-border rounded hover:border-border-glow transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
+          {!status?.exists && (
+            <span className="text-xs text-text-muted">No wallet</span>
+          )}
         </div>
       </header>
 

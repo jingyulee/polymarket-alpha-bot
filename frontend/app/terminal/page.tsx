@@ -8,8 +8,7 @@ import { PortfolioModal } from '@/components/PortfolioModal'
 import { PipelineDropdown } from '@/components/terminal/PipelineDropdown'
 import { WalletDropdown } from '@/components/terminal/WalletDropdown'
 import { KeyboardShortcutsHelp } from '@/components/terminal/KeyboardShortcutsHelp'
-import { DensityToggle, useDensity } from '@/components/terminal/DensityToggle'
-import { ExportDropdown } from '@/components/terminal/ExportDropdown'
+import { densityStyles } from '@/components/terminal/DensityToggle'
 import { PortfolioTable } from '@/components/terminal/PortfolioTable'
 import { getApiBaseUrl } from '@/config/api-config'
 import { formatTime } from '@/utils/format-time'
@@ -45,8 +44,8 @@ export default function TerminalPage() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1)
   const [showHelp, setShowHelp] = useState(false)
 
-  // Density preference
-  const { density, toggle: toggleDensity } = useDensity()
+  // Fixed density
+  const density = 'comfortable' as const
 
   // Favorites
   const { favoriteSet, toggleFavorite, count: favoriteCount, clearAll: clearFavorites } = useFavorites()
@@ -329,12 +328,6 @@ export default function TerminalPage() {
           )}
 
           <div className="flex-1" />
-
-          {/* Export */}
-          <ExportDropdown portfolios={sortedPortfolios} />
-
-          {/* Density toggle */}
-          <DensityToggle density={density} onToggle={toggleDensity} />
 
           <div className="relative">
             <input

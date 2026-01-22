@@ -67,15 +67,15 @@ export function PositionTableRow({ position: p, onRefresh }: PositionTableRowPro
         </td>
 
         {/* Position */}
-        <td className="px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+        <td className="px-3 py-2.5 max-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
               p.target_position === 'YES' ? 'bg-emerald/15 text-emerald' : 'bg-rose/15 text-rose'
             }`}>
               {p.target_position}
             </span>
             <span className="text-sm text-text-primary truncate" title={p.target_question}>
-              {p.target_question.slice(0, 40)}{p.target_question.length > 40 ? '...' : ''}
+              {p.target_question}
             </span>
           </div>
         </td>
