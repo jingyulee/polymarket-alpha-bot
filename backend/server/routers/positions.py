@@ -84,6 +84,7 @@ class PositionResponse(BaseModel):
     target_token_id: str
     target_question: str
     target_entry_price: float
+    target_group_slug: str
     target_split_tx: str
     target_clob_order_id: Optional[str]
     target_clob_filled: bool
@@ -93,6 +94,7 @@ class PositionResponse(BaseModel):
     cover_token_id: str
     cover_question: str
     cover_entry_price: float
+    cover_group_slug: str
     cover_split_tx: str
     cover_clob_order_id: Optional[str]
     cover_clob_filled: bool

@@ -69,6 +69,7 @@ export interface Position {
   target_token_id: string
   target_question: string
   target_entry_price: number
+  target_group_slug: string
   target_split_tx: string
   target_clob_order_id: string | null
   target_clob_filled: boolean
@@ -78,6 +79,7 @@ export interface Position {
   cover_token_id: string
   cover_question: string
   cover_entry_price: number
+  cover_group_slug: string
   cover_split_tx: string
   cover_clob_order_id: string | null
   cover_clob_filled: boolean

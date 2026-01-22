@@ -54,6 +54,7 @@ class LivePosition:
     target_token_id: str
     target_question: str
     target_entry_price: float
+    target_group_slug: str
     target_split_tx: str
     target_clob_order_id: Optional[str]
     target_clob_filled: bool
@@ -64,6 +65,7 @@ class LivePosition:
     cover_token_id: str
     cover_question: str
     cover_entry_price: float
+    cover_group_slug: str
     cover_split_tx: str
     cover_clob_order_id: Optional[str]
     cover_clob_filled: bool
@@ -408,6 +410,7 @@ class PositionService:
                     target_token_id=entry["target_token_id"],
                     target_question=entry["target_question"],
                     target_entry_price=entry["target_entry_price"],
+                    target_group_slug=entry.get("target_group_slug", ""),
                     target_split_tx=entry["target_split_tx"],
                     target_clob_order_id=entry.get("target_clob_order_id"),
                     target_clob_filled=entry.get("target_clob_filled", False),
@@ -416,6 +419,7 @@ class PositionService:
                     cover_token_id=entry["cover_token_id"],
                     cover_question=entry["cover_question"],
                     cover_entry_price=entry["cover_entry_price"],
+                    cover_group_slug=entry.get("cover_group_slug", ""),
                     cover_split_tx=entry["cover_split_tx"],
                     cover_clob_order_id=entry.get("cover_clob_order_id"),
                     cover_clob_filled=entry.get("cover_clob_filled", False),

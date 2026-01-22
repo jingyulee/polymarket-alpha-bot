@@ -22,8 +22,10 @@ class BuyPairRequest(BaseModel):
     pair_id: str
     target_market_id: str
     target_position: str
+    target_group_slug: str = ""
     cover_market_id: str
     cover_position: str
+    cover_group_slug: str = ""
     amount_per_position: float
     skip_clob_sell: bool = False
 
@@ -151,6 +153,7 @@ async def buy_pair(req: BuyPairRequest):
                     target_token_id=target_token_id or "",
                     target_question=target_market.question,
                     target_entry_price=target_entry_price,
+                    target_group_slug=req.target_group_slug,
                     target_split_tx=result.target.split_tx or "",
                     target_clob_order_id=result.target.clob_order_id,
                     target_clob_filled=result.target.clob_filled,
@@ -159,6 +162,7 @@ async def buy_pair(req: BuyPairRequest):
                     cover_token_id=cover_token_id or "",
                     cover_question=cover_market.question,
                     cover_entry_price=cover_entry_price,
+                    cover_group_slug=req.cover_group_slug,
                     cover_split_tx=result.cover.split_tx or "",
                     cover_clob_order_id=result.cover.clob_order_id,
                     cover_clob_filled=result.cover.clob_filled,

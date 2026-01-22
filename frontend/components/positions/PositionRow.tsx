@@ -175,16 +175,18 @@ export function PositionRow({ position: p, onRefresh }: PositionRowProps) {
               <div className="text-xs text-text-secondary">{p.target_question}</div>
             </div>
             <div className="flex items-center gap-2 text-xs shrink-0">
-              <a
-                href={`https://polymarket.com/event/${p.target_market_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan hover:underline"
-                title="See this market on Polymarket website"
-                onClick={(e) => e.stopPropagation()}
-              >
-                View market ↗
-              </a>
+              {p.target_group_slug && (
+                <a
+                  href={`https://polymarket.com/event/${p.target_group_slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan hover:underline"
+                  title="See this market on Polymarket website"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View market ↗
+                </a>
+              )}
               <a
                 href={`https://polygonscan.com/tx/${formatTxHash(p.target_split_tx)}`}
                 target="_blank"
@@ -216,16 +218,18 @@ export function PositionRow({ position: p, onRefresh }: PositionRowProps) {
               <div className="text-xs text-text-secondary">{p.cover_question}</div>
             </div>
             <div className="flex items-center gap-2 text-xs shrink-0">
-              <a
-                href={`https://polymarket.com/event/${p.cover_market_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan hover:underline"
-                title="See this market on Polymarket website"
-                onClick={(e) => e.stopPropagation()}
-              >
-                View market ↗
-              </a>
+              {p.cover_group_slug && (
+                <a
+                  href={`https://polymarket.com/event/${p.cover_group_slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan hover:underline"
+                  title="See this market on Polymarket website"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View market ↗
+                </a>
+              )}
               <a
                 href={`https://polygonscan.com/tx/${formatTxHash(p.cover_split_tx)}`}
                 target="_blank"
