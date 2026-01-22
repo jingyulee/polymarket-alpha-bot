@@ -99,6 +99,7 @@ async def buy_pair(req: BuyPairRequest):
             )
 
         # Record position entry for tracking
+        # Uses market info captured during trade - no extra API calls needed
         logger.info(
             f"Trade result.success={result.success}, attempting position recording"
         )
@@ -106,41 +107,7 @@ async def buy_pair(req: BuyPairRequest):
             try:
                 from datetime import datetime
                 from uuid import uuid4
-                import traceback
                 from core.positions.storage import PositionStorage, PositionEntry
-
-                logger.debug("Fetching market info for position recording...")
-
-                # Get market info for token IDs
-                target_market = await executor.get_market_info(req.target_market_id)
-                cover_market = await executor.get_market_info(req.cover_market_id)
-
-                logger.debug(f"Target market: {target_market.question[:50]}...")
-                logger.debug(f"Cover market: {cover_market.question[:50]}...")
-
-                # Determine which token ID we're holding (the wanted side)
-                target_token_id = (
-                    target_market.yes_token_id
-                    if req.target_position == "YES"
-                    else (target_market.no_token_id or "")
-                )
-                cover_token_id = (
-                    cover_market.yes_token_id
-                    if req.cover_position == "YES"
-                    else (cover_market.no_token_id or "")
-                )
-
-                # Get entry prices
-                target_entry_price = (
-                    target_market.yes_price
-                    if req.target_position == "YES"
-                    else target_market.no_price
-                )
-                cover_entry_price = (
-                    cover_market.yes_price
-                    if req.cover_position == "YES"
-                    else cover_market.no_price
-                )
 
                 entry = PositionEntry(
                     position_id=str(uuid4()),
@@ -150,23 +117,22 @@ async def buy_pair(req: BuyPairRequest):
                     entry_total_cost=req.amount_per_position * 2,
                     target_market_id=req.target_market_id,
                     target_position=req.target_position,
-                    target_token_id=target_token_id or "",
-                    target_question=target_market.question,
-                    target_entry_price=target_entry_price,
-                    target_group_slug=req.target_group_slug,
+                    target_token_id=result.target.wanted_token_id,
+                    target_question=result.target.question,
+                    target_entry_price=result.target.entry_price,
                     target_split_tx=result.target.split_tx or "",
-                    target_clob_order_id=result.target.clob_order_id,
-                    target_clob_filled=result.target.clob_filled,
                     cover_market_id=req.cover_market_id,
                     cover_position=req.cover_position,
-                    cover_token_id=cover_token_id or "",
-                    cover_question=cover_market.question,
-                    cover_entry_price=cover_entry_price,
-                    cover_group_slug=req.cover_group_slug,
+                    cover_token_id=result.cover.wanted_token_id,
+                    cover_question=result.cover.question,
+                    cover_entry_price=result.cover.entry_price,
                     cover_split_tx=result.cover.split_tx or "",
+                    target_group_slug=req.target_group_slug,
+                    cover_group_slug=req.cover_group_slug,
+                    target_clob_order_id=result.target.clob_order_id,
+                    target_clob_filled=result.target.clob_filled,
                     cover_clob_order_id=result.cover.clob_order_id,
                     cover_clob_filled=result.cover.clob_filled,
-                    notes=None,
                 )
 
                 storage = PositionStorage()
@@ -176,8 +142,7 @@ async def buy_pair(req: BuyPairRequest):
                 )
             except Exception as e:
                 # Don't fail the trade if position recording fails
-                logger.error(f"Failed to record position: {e}")
-                logger.error(traceback.format_exc())
+                logger.exception(f"Failed to record position: {e}")
 
         return BuyPairResponse(
             success=result.success,

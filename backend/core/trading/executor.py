@@ -35,6 +35,10 @@ class TradeResult:
     clob_order_id: Optional[str]
     clob_filled: bool
     error: Optional[str] = None
+    # Market info captured during trade (for position recording)
+    question: str = ""
+    wanted_token_id: str = ""
+    entry_price: float = 0.0
 
 
 @dataclass
@@ -261,6 +265,12 @@ class TradingExecutor:
                 unwanted_price,
             )
 
+        # Determine wanted token info for position recording
+        wanted_token_id = (
+            market.yes_token_id if position == "YES" else (market.no_token_id or "")
+        )
+        entry_price = market.yes_price if position == "YES" else market.no_price
+
         return TradeResult(
             success=True,  # Split succeeded
             market_id=market_id,
@@ -270,6 +280,9 @@ class TradingExecutor:
             clob_order_id=clob_order_id,
             clob_filled=clob_filled,
             error=clob_error,  # CLOB error if sell failed
+            question=market.question,
+            wanted_token_id=wanted_token_id,
+            entry_price=entry_price,
         )
 
     async def buy_pair(
