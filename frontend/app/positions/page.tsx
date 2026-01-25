@@ -1,9 +1,56 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, memo } from 'react'
 import { getApiBaseUrl } from '@/config/api-config'
 import { PositionsTable } from '@/components/positions/PositionsTable'
 import { StatusIndicators } from '@/components/StatusIndicators'
+
+// =============================================================================
+// INFO ICON COMPONENT
+// =============================================================================
+
+const InfoIcon = memo(function InfoIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M8 7v4" strokeLinecap="round" />
+      <circle cx="8" cy="5" r="0.5" fill="currentColor" stroke="none" />
+    </svg>
+  )
+})
+
+const PurchaseFlowHint = memo(function PurchaseFlowHint() {
+  return (
+    <span className="purchase-flow-hint ml-2">
+      <span className="purchase-flow-hint-icon">
+        <InfoIcon />
+      </span>
+      <span className="purchase-flow-hint-tooltip">
+        <span className="purchase-flow-hint-title">How Position Entry Works</span>
+        <span className="purchase-flow-hint-content">
+          <span className="purchase-flow-hint-step">
+            <span className="purchase-flow-hint-num">1</span>
+            <span><strong>Split USDC</strong> — Converts your USDC into conditional tokens for both YES and NO outcomes on each market.</span>
+          </span>
+          <span className="purchase-flow-hint-step">
+            <span className="purchase-flow-hint-num">2</span>
+            <span><strong>Sell Unwanted</strong> — Automatically sells the opposite side (e.g., sells NO if you want YES) via FOK order at 10% below market.</span>
+          </span>
+          <span className="purchase-flow-hint-step">
+            <span className="purchase-flow-hint-num">3</span>
+            <span><strong>Position Active</strong> — Once orders fill, you hold your target + cover positions with guaranteed $1 payout.</span>
+          </span>
+        </span>
+        <span className="purchase-flow-hint-labels">
+          <span className="purchase-flow-hint-label-title">Position States</span>
+          <span><strong style={{ color: 'rgb(251 191 36)' }}>Pending</strong> — FOK order failed (no liquidity), tokens held waiting for retry</span>
+          <span><strong style={{ color: 'rgb(52 211 153)' }}>Active</strong> — Fully filled, holding both sides</span>
+          <span><strong style={{ color: 'rgb(100 107 120)' }}>Complete</strong> — Exited or resolved</span>
+        </span>
+      </span>
+    </span>
+  )
+})
 
 // =============================================================================
 // TYPES
@@ -127,7 +174,10 @@ export default function PositionsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div>
-              <h1 className="text-lg font-semibold text-text-primary">Positions</h1>
+              <h1 className="text-lg font-semibold text-text-primary flex items-center">
+                Positions
+                <PurchaseFlowHint />
+              </h1>
               <p className="text-[10px] text-text-muted">
                 Manage your holdings
               </p>
